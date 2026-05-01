@@ -6,7 +6,12 @@ from models import db, User, Place, Wishlist, Expense
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'change-me-in-production')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///belagavi.db'
+
+db_url = os.environ.get('DATABASE_URL', 'sqlite:///belagavi.db')
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 
 db.init_app(app)
 

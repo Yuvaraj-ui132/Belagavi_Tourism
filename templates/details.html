@@ -100,6 +100,23 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- GOOGLE MAPS -->
+                        {% if place.lat and place.lon %}
+                        <div class="mt-4">
+                            <h5 class="fw-bold mb-3 text-dark">Interactive Map</h5>
+                            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                                <iframe 
+                                    width="100%" 
+                                    height="300" 
+                                    style="border:0;" 
+                                    loading="lazy" 
+                                    allowfullscreen 
+                                    src="https://maps.google.com/maps?q={{ place.lat }},{{ place.lon }}&hl=en&z=14&output=embed">
+                                </iframe>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="col-lg-4">
@@ -139,19 +156,32 @@
 
         <!-- GALLERY TAB -->
         <div class="tab-pane fade" id="gallery" role="tabpanel">
-            <div class="row g-3">
-                {% for img in images %}
-                <div class="col-6 col-md-4 col-lg-3">
-                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100" style="transition: transform 0.2s;">
-                        <img src="{{ url_for('static', filename='images/' + place.folder_name + '/' + img) }}"
-                             class="w-100" style="object-fit: cover; height: 200px; cursor: pointer;"
-                             onclick="window.open(this.src)"
-                             onmouseover="this.style.opacity=0.8"
-                             onmouseout="this.style.opacity=1">
+            {% if images %}
+            <div id="placeCarousel" class="carousel slide shadow-sm rounded-4 overflow-hidden" data-bs-ride="carousel">
+                <div class="carousel-inner">
+                    {% for img in images %}
+                    <div class="carousel-item {% if loop.first %}active{% endif %}">
+                        <img src="{{ url_for('static', filename='images/' + place.folder_name + '/' + img) }}" 
+                             class="d-block w-100" style="object-fit: cover; height: 500px;" alt="Image {{ loop.index }}">
                     </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
+                {% if images|length > 1 %}
+                <button class="carousel-control-prev" type="button" data-bs-target="#placeCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon bg-dark rounded-circle p-2" aria-hidden="true" style="opacity: 0.7;"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#placeCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon bg-dark rounded-circle p-2" aria-hidden="true" style="opacity: 0.7;"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+                {% endif %}
             </div>
+            {% else %}
+            <div class="text-center p-5 border rounded-4 bg-light">
+                <p class="text-muted fw-bold m-0">No images available in the gallery.</p>
+            </div>
+            {% endif %}
         </div>
 
         <!-- RECOMMENDED TAB -->
