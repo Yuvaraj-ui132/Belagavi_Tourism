@@ -15,9 +15,18 @@ app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 
 db.init_app(app)
 
+from sqlalchemy import text
 from data import PLACE_DETAILS
+
 with app.app_context():
     db.create_all()
+    
+    # Safely alter the user table if it was already created with the 150 limit
+    try:
+        db.session.execute(text('ALTER TABLE "user" ALTER COLUMN password TYPE VARCHAR(255);'))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     if not Place.query.first():
         for folder_name, details in PLACE_DETAILS.items():
             new_place = Place(

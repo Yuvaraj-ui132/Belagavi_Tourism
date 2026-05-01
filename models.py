@@ -7,7 +7,7 @@ class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
-    password = db.Column(db.String(150), nullable=False)
+    password = db.Column(db.String(255), nullable=False)
     wishlist = db.relationship('Wishlist', backref='user', lazy=True)
     expenses = db.relationship('Expense', backref='user', lazy=True, cascade="all, delete-orphan")
 
