@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container-fluid py-4" style="background: #f8fafc; min-height: 100vh;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark m-0">🛠️ Admin Dashboard</h2>
+            <p class="text-muted m-0">Manage Places and Content</p>
+        </div>
+        <div>
+            <button class="btn btn-primary rounded-pill fw-bold me-2" data-bs-toggle="modal" data-bs-target="#addModal">➕ Add Place</button>
+            <a href="{{ url_for('home') }}" class="btn btn-outline-secondary rounded-pill fw-bold">Back to App</a>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-success alert-dismissible fade show rounded-4" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Add Place Modal -->
+    <div class="modal fade" id="addModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-bottom-0">
+                    <h5 class="modal-title fw-bold">Add New Place</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('admin_add') }}" method="POST">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-bold">Name</label>
+                            <input type="text" name="name" class="form-control rounded-3" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-bold">Folder Name (for images)</label>
+                            <input type="text" name="folder_name" class="form-control rounded-3" placeholder="e.g., new_place" required>
+                            <small class="text-muted d-block mt-1">You will need to manually add images to <code>static/images/your_folder_name/</code> later.</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-bold">Category</label>
+                            <input type="text" name="category" class="form-control rounded-3" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-bold">Short Description</label>
+                            <textarea name="description" class="form-control rounded-3" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top-0 bg-light rounded-bottom-4">
+                        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success rounded-pill px-4 fw-bold">➕ Add Place</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle m-0 bg-white">
+                <thead class="table-light">
+                    <tr>
+                        <th class="py-3 px-4">ID</th>
+                        <th class="py-3 px-4">Image</th>
+                        <th class="py-3 px-4">Name</th>
+                        <th class="py-3 px-4">Category</th>
+                        <th class="py-3 px-4 text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for place in places %}
+                    <tr>
+                        <td class="px-4 text-muted fw-bold">#{{ place.id }}</td>
+                        <td class="px-4">
+                            <img src="{{ url_for('static', filename='images/' + place.folder_name + '/1.jpg') }}" 
+                                 class="rounded-3 shadow-sm" style="width: 50px; height: 50px; object-fit: cover;">
+                        </td>
+                        <td class="px-4 fw-bold text-dark">{{ place.name }}</td>
+                        <td class="px-4"><span class="badge bg-primary rounded-pill">{{ place.category }}</span></td>
+                        <td class="px-4 text-end">
+                            <button class="btn btn-sm btn-outline-primary fw-bold me-1" data-bs-toggle="modal" data-bs-target="#editModal{{ place.id }}">
+                                ✏️ Edit
+                            </button>
+                            <form action="{{ url_for('admin_delete', place_id=place.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete {{ place.name }}? This cannot be undone.');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger fw-bold">
+                                    🗑️ Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+
+                    <!-- Edit Modal for this place -->
+                    <div class="modal fade" id="editModal{{ place.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content rounded-4 border-0 shadow-lg">
+                                <div class="modal-header border-bottom-0">
+                                    <h5 class="modal-title fw-bold">Edit Place</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <form action="{{ url_for('admin_edit', place_id=place.id) }}" method="POST">
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label text-muted small fw-bold">Name</label>
+                                            <input type="text" name="name" class="form-control rounded-3" value="{{ place.name }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label text-muted small fw-bold">Category</label>
+                                            <input type="text" name="category" class="form-control rounded-3" value="{{ place.category }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label text-muted small fw-bold">Short Description</label>
+                                            <textarea name="description" class="form-control rounded-3" rows="3">{{ place.description }}</textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer border-top-0 bg-light rounded-bottom-4">
+                                        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">Save Changes</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

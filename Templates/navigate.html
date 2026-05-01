@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- ✅ Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<!-- ✅ Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<!-- ✅ Routing CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css">
+<!-- ✅ Routing JS -->
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+
+<style>
+    .nav-top-bar {
+        position: absolute;
+        top: 15px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 500px;
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    /* Ensure Leaflet controls stay behind the top bar */
+    .leaflet-top, .leaflet-bottom {
+        z-index: 900 !important;
+    }
+</style>
+
+<div class="position-relative" style="height: calc(100vh - 125px); width: 100%; overflow: hidden;">
+    
+    <!-- Floating Top Bar -->
+    <div class="nav-top-bar d-flex justify-content-between align-items-center">
+        <div>
+            <h6 class="fw-bold mb-1 text-truncate" style="max-width: 250px;">{{ place.name }}</h6>
+            <small class="text-muted d-block">Navigating to destination...</small>
+        </div>
+        <button onclick="locateUser()" class="btn btn-primary rounded-pill fw-bold shadow-sm px-3">
+            📍 Locate Me
+        </button>
+    </div>
+
+    <!-- Map Container -->
+    <div id="place-map" class="h-100 w-100"></div>
+    
+    <!-- Floating Route Info Box (Hidden until calculated) -->
+    <div id="route-info" class="position-absolute shadow-lg rounded-4 p-3 text-center" 
+         style="bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; z-index: 1000; background: white; display: none;">
+        
+        <h6 class="fw-bold text-primary mb-2">🚗 Route Details</h6>
+        <div class="d-flex justify-content-around mb-3">
+            <div id="distance-text" class="small fw-bold text-dark"></div>
+            <div id="time-text" class="small fw-bold text-dark"></div>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <button class="btn btn-light rounded-pill flex-fill fw-bold shadow-sm border" onclick="recenterDestination()">
+                🎯 Re-center
+            </button>
+            <button class="btn btn-outline-primary rounded-pill flex-fill fw-bold shadow-sm border" onclick="startFromBelagavi()">
+                📍 Belagavi Start
+            </button>
+        </div>
+        <div class="mt-2">
+            <a href="https://www.google.com/maps/dir/?api=1&destination={{ place.lat }},{{ place.lon }}" 
+               target="_blank" class="btn btn-success w-100 rounded-pill fw-bold shadow-sm">
+               🚗 Live Voice Nav
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    const lat = {{ place.lat|default("null") }};
+    const lon = {{ place.lon|default("null") }};
+    
+    // Belagavi CBT (Central Bus Stand) as fallback starting point
+    const belagaviCenterLat = 15.8626;
+    const belagaviCenterLon = 74.5177;
+    
+    let map;
+    let routingControl;
+    let userMarker;
+    
+    if (lat !== null && lon !== null) {
+        map = L.map('place-map', { zoomControl: false }).setView([lat, lon], 13);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+    
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    
+        // Destination marker
+        L.marker([lat, lon]).addTo(map).bindPopup("<b>{{ place.name }}</b><br>Destination").openPopup();
+    }
+
+    function updateRouteUI(message, isError = false) {
+        const routeInfo = document.getElementById("route-info");
+        const distanceText = document.getElementById("distance-text");
+        const timeText = document.getElementById("time-text");
+        
+        routeInfo.style.display = "block";
+        timeText.innerHTML = "";
+        
+        if (isError) {
+            distanceText.innerHTML = `<span class="text-danger">⚠️ ${message}</span>`;
+        } else {
+            distanceText.innerHTML = `<span class="text-secondary">⏳ ${message}</span>`;
+        }
+    }
+    
+    let fallbackLine = null;
+    let routingTimeout = null;
+
+    function createRoute(userLat, userLng) {
+        if (!map) return;
+        updateRouteUI("Calculating route...");
+
+        if (routingControl) map.removeControl(routingControl);
+        if (fallbackLine) { map.removeLayer(fallbackLine); fallbackLine = null; }
+
+        routingControl = L.Routing.control({
+            waypoints: [
+                L.latLng(userLat, userLng),
+                L.latLng(lat, lon)
+            ],
+            lineOptions: {
+                styles: [
+                    { color: 'white', opacity: 0.9, weight: 9 },
+                    { color: '#0d6efd', opacity: 1, weight: 5 }
+                ]
+            },
+            routeWhileDragging: false,
+            show: false,
+            addWaypoints: false,
+            draggableWaypoints: false,
+            fitSelectedRoutes: true,
+            router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' })
+        }).addTo(map);
+
+        // Safety fallback if OSRM server is overloaded
+        clearTimeout(routingTimeout);
+        routingTimeout = setTimeout(() => {
+            updateRouteUI("Server busy. Showing direct path.", true);
+            map.removeControl(routingControl);
+            fallbackLine = L.polyline([ [userLat, userLng], [lat, lon] ], {
+                color: '#0d6efd',
+                weight: 5,
+                dashArray: '10, 10'
+            }).addTo(map);
+            map.fitBounds(fallbackLine.getBounds(), { padding: [50, 50] });
+            
+            let distance = getDistance(userLat, userLng, lat, lon).toFixed(1);
+            document.getElementById("route-info").style.display = "block";
+            document.getElementById("distance-text").innerHTML = "📏 ~" + distance + " km (direct)";
+            document.getElementById("time-text").innerHTML = "⏱️ Unknown";
+        }, 5000);
+
+        routingControl.on('routesfound', function(e) {
+            clearTimeout(routingTimeout);
+            let distance = (e.routes[0].summary.totalDistance / 1000).toFixed(2);
+            let time = (e.routes[0].summary.totalTime / 60).toFixed(1);
+
+            document.getElementById("route-info").style.display = "block";
+            document.getElementById("distance-text").innerHTML = "📏 " + distance + " km";
+            document.getElementById("time-text").innerHTML = "⏱️ " + time + " mins";
+            
+            let warningDiv = document.getElementById("glitch-warning");
+            if (!warningDiv) {
+                warningDiv = document.createElement("div");
+                warningDiv.id = "glitch-warning";
+                warningDiv.className = "text-danger small fw-bold mb-2 bg-light rounded p-1 border border-danger";
+                const routeInfo = document.getElementById("route-info");
+                // routeInfo.children[1] is the d-flex div holding distance and time
+                routeInfo.insertBefore(warningDiv, routeInfo.children[1]);
+            }
+            
+            if (parseFloat(distance) > 50) {
+                warningDiv.innerHTML = "⚠️ Long route detected. If this is a GPS error, click 'Belagavi Start' below.";
+                warningDiv.style.display = "block";
+            } else {
+                warningDiv.style.display = "none";
+            }
+        });
+
+        routingControl.on('routingerror', function(e) {
+            clearTimeout(routingTimeout);
+            updateRouteUI("Routing error. Showing direct path.", true);
+            map.removeControl(routingControl);
+            fallbackLine = L.polyline([ [userLat, userLng], [lat, lon] ], {
+                color: '#0d6efd',
+                weight: 5,
+                dashArray: '10, 10'
+            }).addTo(map);
+            map.fitBounds(fallbackLine.getBounds(), { padding: [50, 50] });
+            
+            let distance = getDistance(userLat, userLng, lat, lon).toFixed(1);
+            document.getElementById("route-info").style.display = "block";
+            document.getElementById("distance-text").innerHTML = "📏 ~" + distance + " km (direct)";
+            document.getElementById("time-text").innerHTML = "⏱️ Unknown";
+        });
+    }
+
+    function setUserMarker(uLat, uLng) {
+        if (!userMarker) {
+            // Create a DRAGGABLE marker
+            userMarker = L.marker([uLat, uLng], {draggable: true}).addTo(map)
+                .bindPopup("<b>You are here</b><br><i>Drag me to change starting point!</i>").openPopup();
+            
+            // Listen for when the user finishes dragging the pin
+            userMarker.on('dragend', function(event) {
+                const marker = event.target;
+                const position = marker.getLatLng();
+                createRoute(position.lat, position.lng);
+            });
+        } else {
+            userMarker.setLatLng([uLat, uLng]);
+            userMarker.openPopup();
+        }
+        createRoute(uLat, uLng);
+    }
+
+    // Rough distance calculation in KM
+    function getDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; 
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
+
+    function startFromBelagavi() {
+        setUserMarker(belagaviCenterLat, belagaviCenterLon);
+        updateRouteUI("Starting from Belagavi CBT.");
+    }
+
+    function locateUser() {
+        if (!map) return;
+        updateRouteUI("Getting location...");
+        
+        // Always place a fallback marker at Belagavi CBT first
+        setUserMarker(belagaviCenterLat, belagaviCenterLon);
+        
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(pos) {
+                const userLat = pos.coords.latitude;
+                const userLng = pos.coords.longitude;
+                
+                let distToBelagavi = getDistance(userLat, userLng, belagaviCenterLat, belagaviCenterLon);
+                if (distToBelagavi > 100) {
+                    alert("You are too far from Belagavi! Starting route from Belagavi Bus Stand instead.");
+                    setUserMarker(belagaviCenterLat, belagaviCenterLon);
+                    updateRouteUI("Starting from Belagavi CBT.");
+                } else {
+                    setUserMarker(userLat, userLng);
+                    updateRouteUI("Location found!");
+                }
+                
+            }, function() {
+                updateRouteUI("Permission denied. Falling back to Belagavi Center.", true);
+            });
+        } else {
+            updateRouteUI("Geolocation not supported. Falling back to Belagavi Center.", true);
+        }
+    }
+    
+    function recenterDestination() {
+        if (map && lat !== null && lon !== null) {
+            map.setView([lat, lon], 13);
+        }
+    }
+
+    // Automatically trigger location fetch on page load
+    window.addEventListener('load', () => {
+        if (lat !== null && lon !== null) {
+            locateUser();
+        }
+    });
+</script>
+{% endblock %}

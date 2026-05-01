@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Home Section (Default View) -->
+<div id="home" class="section explore-view" style="display:block;">
+    <div class="hero" style="background: linear-gradient(135deg, #2563eb, #1e40af); color: white; padding: 50px 20px; text-align: center; border-radius: 0 0 20px 20px; box-shadow: 0 10px 30px rgba(37,99,235,0.2);">
+        <h1 class="fw-bold">Discover Belagavi</h1>
+        <p class="opacity-75">Explore the wonders of the local district</p>
+        <div class="search-container mt-4">
+            <div class="position-relative mx-auto" style="max-width: 500px;">
+                <i class="fa-solid fa-magnifying-glass position-absolute" style="left: 20px; top: 15px; color: #94a3b8;"></i>
+                <input type="text" id="search" placeholder="Search across all places..." 
+                       onkeyup="filterPlaces()" 
+                       style="width: 100%; padding: 12px 20px 12px 50px; border-radius: 25px; border: none; outline: none; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid mt-4 pb-5">
+        <div id="placeGrid">
+            <h5 class="fw-bold mb-3 px-2">Featured Spots</h5>
+            <div class="row g-3 px-2">
+                {% for p in places %}
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="place-card bg-white rounded shadow-sm overflow-hidden">
+                        <a href="{{ url_for('place_details', place_id=p.id) }}" class="d-block position-relative" style="text-decoration: none;">
+                            <img src="{{ url_for('static', filename='images/' + p.folder_name + '/1.jpg') }}" 
+                                 alt="{{ p.name }}" loading="lazy"
+                                 style="width: 100%; height: 200px; object-fit: cover; cursor: pointer;">
+                            <span class="badge bg-dark position-absolute top-0 end-0 m-2">{{ p.category }}</span>
+                        </a>
+
+                        <div class="p-3">
+                            <a href="{{ url_for('place_details', place_id=p.id) }}" style="text-decoration: none; color: inherit;">
+                                <h3 class="h5 fw-bold mb-1 text-truncate">{{ p.name }}</h3>
+                            </a>
+                            
+                            <p class="text-muted small mb-3 text-truncate">{{ p.description[:60] }}...</p>
+                            
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-primary w-100 fw-bold" onclick="toggleWishlist(this, {{ p.id }}, '{{ p.name }}', '{{ p.folder_name }}')" style="font-size: 0.85rem;">
+                                    <i class="fa-solid fa-heart me-1"></i> Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 🔥 MODERN FULLSCREEN EXPLORE SECTION -->
+<div id="explore" class="section bg-light p-0 position-relative explore-view" style="display:none; height: calc(100vh - 125px); width: 100%; overflow: hidden;">
+    
+    <!-- Floating Top Bar -->
+    <div class="explore-top-bar shadow-sm">
+        <div class="d-flex gap-2 align-items-center mb-2">
+            <input type="text" id="exploreSearch" class="form-control rounded-pill border-0 shadow-sm px-3" 
+                   placeholder="Search Belagavi..." onkeyup="applyExploreFilters()">
+            <button class="btn btn-dark rounded-pill shadow-sm text-nowrap px-3" onclick="toggleExploreView()">
+                <span id="view-toggle-text"><i class="fa-solid fa-table-cells me-1"></i> Grid</span>
+            </button>
+        </div>
+        
+        <!-- Category Pills -->
+        <div class="d-flex gap-2 overflow-auto pb-1" style="white-space: nowrap; scrollbar-width: none;">
+            <button class="btn btn-sm btn-primary rounded-pill explore-filter-btn" data-cat="all" onclick="setCategory('all', this)">All</button>
+            <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="waterfall" onclick="setCategory('waterfall', this)">Waterfall</button>
+            <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="temple" onclick="setCategory('temple', this)">Temple</button>
+            <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="fort" onclick="setCategory('fort', this)">Fort</button>
+            <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="nature" onclick="setCategory('nature', this)">Nature</button>
+        </div>
+    </div>
+
+    <!-- 🗺️ MAP VIEW -->
+    <div id="explore-map-container" class="h-100 w-100 position-relative explore-view">
+        <div id="explore-map" class="h-100 w-100"></div>
+        <button class="btn btn-light shadow rounded-circle position-absolute d-flex align-items-center justify-content-center" 
+                style="bottom: 20px; right: 20px; z-index: 1000; width: 50px; height: 50px; font-size: 1.2rem; color: #2563eb;"
+                onclick="recenterExploreMap()">
+            <i class="fa-solid fa-location-crosshairs"></i>
+        </button>
+    </div>
+
+    <!-- 📱 GRID VIEW -->
+    <div id="explore-grid-container" class="h-100 w-100 pt-3 px-3 overflow-auto explore-view" style="display: none; padding-top: 115px !important;">
+        <div class="row g-3 pb-5" id="fullList">
+            {% for p in all_places_list %}
+            <div class="col-6 col-md-4 col-lg-3 explore-item search-item" 
+                 data-name="{{ p.name.lower() }}" 
+                 data-category="{{ p.category.lower() }}"
+                 data-folder="{{ p.folder_name }}"
+                 data-id="{{ p.id }}">
+                 
+                <a href="{{ url_for('place_details', place_id=p.id) }}" class="text-decoration-none text-dark d-block h-100">
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+                        <img src="{{ url_for('static', filename='images/' + p.folder_name + '/1.jpg') }}" alt="{{ p.name }}" loading="lazy" style="width: 100%; height: 120px; object-fit: cover;">
+                        <div class="card-body p-2 d-flex flex-column">
+                            <h6 class="small fw-bold mb-1 text-truncate">{{ p.name }}</h6>
+                            <small class="text-muted text-truncate d-block mb-2">{{ p.category }}</small>
+                            <div class="d-flex gap-1 mt-auto">
+                                <button type="button" class="btn btn-sm btn-outline-primary w-100" onclick="event.preventDefault(); event.stopPropagation(); toggleWishlist(this, {{ p.id }}, {{ p.name|tojson }}, {{ p.folder_name|tojson }})"><i class="fa-solid fa-heart"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+            
+            <div id="no-results-msg" class="col-12 text-center p-5" style="display: none;">
+                <i class="fa-solid fa-magnifying-glass text-muted" style="font-size: 3rem; opacity: 0.5;"></i>
+                <h5 class="text-muted mt-3 fw-bold">No places found</h5>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Wishlist Section -->
+<div id="wishlist" class="section mt-4 explore-view" style="display:none;">
+    <h5 class="fw-bold mb-3 px-3"><i class="fa-solid fa-heart text-danger me-2"></i>My Saved Places</h5>
+    <div id="wishlist-items" class="px-3 pb-5">
+        {% if not user_wishlist %}
+            <div id="empty-msg" class="text-center p-5 text-muted">
+                <i class="fa-regular fa-heart mb-3" style="font-size: 3rem; opacity: 0.5;"></i>
+                <p>Your wishlist is empty!<br>Add places from Home or Explore.</p>
+            </div>
+        {% endif %}
+        {% for item in user_wishlist %}
+        <div class="card mb-3 p-2 shadow-sm d-flex flex-row align-items-center border-0 rounded-4" id="wish-item-{{ item.place.id }}">
+            <img src="{{ url_for('static', filename='images/' + item.place.folder_name + '/1.jpg') }}" loading="lazy"
+                 style="width: 70px; height: 70px; object-fit: cover; border-radius: 12px;">
+            <div class="ms-3 flex-grow-1">
+                <h6 class="m-0 fw-bold">{{ item.place.name }}</h6>
+                <small class="text-muted">{{ item.place.category }}</small>
+            </div>
+            <button class="btn btn-link text-danger text-decoration-none" onclick="toggleWishlist(null, {{ item.place.id }})"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Expense Section -->
+<div id="expense" class="section mt-4 explore-view" style="display:none;">
+    <h5 class="fw-bold mb-3 px-3 text-primary"><i class="fa-solid fa-wallet me-2"></i>Trip Budget Manager</h5>
+    
+    <div class="card mx-3 p-4 bg-dark text-white border-0 shadow-lg rounded-4">
+        <div class="d-flex justify-content-between">
+            <div>
+                <small class="text-secondary text-uppercase fw-bold" style="letter-spacing: 1px;">Total Spent</small>
+                <h2 id="total-amount" class="fw-bold text-success mb-0 mt-1">₹0.00</h2>
+            </div>
+            <div class="text-end">
+                <small class="text-secondary text-uppercase fw-bold" style="letter-spacing: 1px;">Monthly Limit</small>
+                <h6 id="budget-limit-text" class="mb-0 mt-2">₹10,000</h6>
+            </div>
+        </div>
+        <div class="progress mt-4" style="height: 10px; background: rgba(255,255,255,0.1); border-radius: 10px;">
+            <div id="budget-progress" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+        </div>
+        <small id="budget-warning" class="mt-2 d-block text-secondary">0% of budget used</small>
+    </div>
+
+    <div class="card mx-3 mt-4 p-4 shadow-sm border-0 rounded-4">
+        <h6 class="fw-bold text-secondary mb-3"><i class="fa-solid fa-plus me-2"></i>Add New Expense</h6>
+        <div class="row g-3">
+            <div class="col-12">
+                <select id="item_location" class="form-select border-light bg-light shadow-sm">
+                    <option value="" disabled selected>Select Destination</option>
+                    {% for p in all_places_list %}
+                        <option value="{{ p.name }}">{{ p.name }}</option>
+                    {% endfor %}
+                    <option value="General">General / Misc</option>
+                </select>
+            </div>
+            
+            <div class="col-6">
+                <select id="item_category" class="form-select border-light bg-light shadow-sm">
+                    <option value="Transport">Transport</option>
+                    <option value="Food">Food</option>
+                    <option value="Entry Fee">Entry Fee</option>
+                    <option value="Stay">Stay</option>
+                    <option value="Misc">Misc</option>
+                </select>
+            </div>
+            
+            <div class="col-6">
+                <div class="input-group shadow-sm rounded">
+                    <span class="input-group-text bg-light border-light border-end-0">₹</span>
+                    <input id="item_amount" type="number" class="form-control border-light bg-light border-start-0 ps-0" placeholder="Amount">
+                </div>
+            </div>
+
+            <div class="col-12">
+                <input id="item_name" class="form-control border-light bg-light shadow-sm" placeholder="Optional Note (e.g., Taxi fare, Snacks)">
+            </div>
+            
+            <div class="col-12 mt-4">
+                <button class="btn btn-primary w-100 fw-bold py-2 shadow-sm rounded-pill" onclick="addExpense()"><i class="fa-solid fa-plus me-1"></i> Add Expense</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4 px-3 pb-5">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="fw-bold m-0 text-secondary">Recent Expenses</h6>
+            <button class="btn btn-sm btn-link text-decoration-none text-danger fw-bold" onclick="clearAllExpenses()">Clear All</button>
+        </div>
+        <div id="expense-list">
+            <!-- Handled by JS -->
+        </div>
+    </div>
+</div>
+
+<!-- Profile Section -->
+<div id="profile" class="section mt-4 explore-view" style="display:none;">
+    <div class="container px-3 pb-5">
+        <div class="card border-0 shadow-sm mb-4 overflow-hidden" style="border-radius: 24px;">
+            <div style="height: 120px; background: linear-gradient(135deg, #1e293b, #0f172a);"></div>
+            <div class="card-body text-center pt-0" style="margin-top: -50px;">
+                <div class="position-relative d-inline-block mb-3">
+                    <div class="bg-white rounded-circle p-1 shadow">
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" 
+                             style="width: 90px; height: 90px; font-size: 2.2rem; border: 3px solid #fff;">
+                            {{ current_user.username[0].upper() }}
+                        </div>
+                    </div>
+                </div>
+                <h4 class="fw-bold text-dark mb-1">{{ current_user.username }}</h4>
+                <p class="text-muted small mb-0"><i class="fa-solid fa-envelope me-1"></i> {{ current_user.email }}</p>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <h6 class="fw-bold text-secondary small text-uppercase px-2 mb-2" style="letter-spacing: 1.2px;">Overview</h6>
+            <div class="row g-3 mb-3">
+                <div class="col-6">
+                    <div class="card border-0 shadow-sm p-3 text-center" style="border-radius: 20px; background: #eff6ff;">
+                        <h4 class="fw-bold text-primary mb-1" id="stat-wishlist-count">{{ user_wishlist|length }}</h4>
+                        <small class="text-primary fw-bold" style="font-size: 0.7rem; text-uppercase: uppercase;">Saved</small>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="card border-0 shadow-sm p-3 text-center" style="border-radius: 20px; background: #fef2f2;">
+                        <h4 class="fw-bold text-danger mb-1" id="stat-expense-count">0</h4>
+                        <small class="text-danger fw-bold" style="font-size: 0.7rem; text-uppercase: uppercase;">Trips</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm p-3" style="border-radius: 20px;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-light p-2 rounded-circle me-3 text-primary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="fa-solid fa-bullseye"></i></div>
+                        <div>
+                            <div class="fw-bold small">Budget Goal</div>
+                            <div class="text-muted" style="font-size: 0.7rem;">Set monthly limit (₹)</div>
+                        </div>
+                    </div>
+                    <input type="number" id="budget-goal-input" class="form-control form-control-sm text-end fw-bold" 
+                           style="width: 100px; border: none; background: #f8fafc;" 
+                           value="10000" onchange="updateBudgetGoal(this.value)">
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-5">
+            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger px-4 py-2 rounded-pill fw-bold shadow-sm">
+                <i class="fa-solid fa-right-from-bracket me-1"></i> Logout
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Pass data to JS -->
+<script>
+    window.allPlacesData = [
+        {% for p in all_places_list %}
+        {
+            id: {{ p.id }},
+            name: {{ p.name|tojson }},
+            folder: {{ p.folder_name|tojson }},
+            category: {{ p.category|tojson }},
+            lat: {{ p.lat|default(0) }},
+            lon: {{ p.lon|default(0) }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+</script>
+
+{% endblock %}

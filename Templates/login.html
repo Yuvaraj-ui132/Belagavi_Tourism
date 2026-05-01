@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-4">
+        <div class="card shadow p-4">
+            <h3 class="text-center mb-4">Login</h3>
+            
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="alert alert-danger py-2 small text-center">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('login', next=request.args.get('next')) }}">
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input type="text" name="username" class="form-control" placeholder="Enter username" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-control" placeholder="Enter password" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 rounded-pill">Sign In</button>
+            </form>
+            <div class="text-center mt-3">
+                <small>New to Belagavi Guide? <a href="{{ url_for('register') }}">Register now</a></small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="text-white text-center px-3 py-5" style="background: linear-gradient(165deg, #2563eb 0%, #1d4ed8 100%); min-height: 70vh;">
+    <div class="container" style="max-width: 520px;">
+        <h1 class="display-5 fw-bold mb-3">Belagavi Travel Planner</h1>
+        <p class="lead opacity-90 mb-4">Sign in or create an account to explore places, maps, and your saved list.</p>
+        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+            <a href="{{ url_for('login') }}" class="btn btn-light btn-lg px-4 fw-semibold shadow">Login</a>
+            <a href="{{ url_for('register') }}" class="btn btn-outline-light btn-lg px-4 fw-semibold">Register</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
