@@ -9,6 +9,39 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'change-me-in-production
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///belagavi.db'
 
 db.init_app(app)
+
+from data import PLACE_DETAILS
+with app.app_context():
+    db.create_all()
+    if not Place.query.first():
+        for folder_name, details in PLACE_DETAILS.items():
+            new_place = Place(
+                name=details.get('name'),
+                folder_name=folder_name,
+                category=details.get('category'),
+                description=(details.get('history') or '')[:200],
+                history=details.get('history'),
+                architecture=details.get('architecture'),
+                famous_features=details.get('famous_features'),
+                lat=details.get('lat'),
+                lon=details.get('lon'),
+                best_time=details.get('best_time'),
+                entry_fee=details.get('entry_fee'),
+                visit_duration=details.get('visit_duration'),
+                city=details.get('city'),
+                how_to_reach=details.get('how_to_reach'),
+                local_tips=details.get('local_tips'),
+                detailed_history=details.get('detailed_history')
+            )
+            db.session.add(new_place)
+            
+    if not User.query.filter_by(username='Yuvaraj').first():
+        hashed_pw = generate_password_hash('Yuvaraj1718', method='scrypt')
+        admin_user = User(username='Yuvaraj', email='yuvaraj@gmail.com', password=hashed_pw)
+        db.session.add(admin_user)
+        
+    db.session.commit()
+
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
