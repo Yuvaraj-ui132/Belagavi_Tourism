@@ -72,9 +72,7 @@
       getAuth,
       createUserWithEmailAndPassword,
       GoogleAuthProvider,
-      signInWithRedirect,
-      getRedirectResult,
-      updateProfile
+      signInWithPopup
   } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
   const firebaseConfig = {
@@ -91,44 +89,21 @@
       const fbApp = initializeApp(firebaseConfig);
       auth = getAuth(fbApp);
   } else {
-      console.error('[Firebase] Config missing. Check env vars.');
+      console.error('[Firebase] Config missing — check server env vars.');
   }
 
-  // ── Handle redirect result when page reloads after Google redirect ──
-  if (auth) {
-      getRedirectResult(auth)
-          .then(result => {
-              if (!result) return;  // normal page load, no pending redirect
-              setLoading(true);
-              return result.user.getIdToken().then(sendTokenToServer);
-          })
-          .catch(e => {
-              console.error('[Firebase] Redirect result error:', e.code, e.message);
-              showError(`Google Sign-In failed: ${e.code || e.message}`);
-              setLoading(false);
-          });
-  }
-
-  // ── Send token to Flask via hidden form POST (reliable session creation) ──
-  async function sendTokenToServer(idToken) {
-      console.log('[Firebase] Submitting token to Flask via form POST...');
-      const field = document.getElementById('firebase-token-field');
-      const form  = document.getElementById('firebase-session-form');
-      if (!field || !form) {
-          console.error('[Firebase] Hidden form not found in DOM!');
-          showError('Internal error. Please refresh and try again.');
-          setLoading(false);
-          return;
-      }
-      field.value = idToken;
-      form.submit();  // Native browser POST — Flask redirects after login_user()
+  // ── Submit token via hidden form POST — guarantees session cookie set before redirect
+  function sendTokenToServer(idToken) {
+      console.log('[Firebase] Submitting token via form POST...');
+      document.getElementById('firebase-token-field').value = idToken;
+      document.getElementById('firebase-session-form').submit();
   }
 
   function showError(msg) {
       document.getElementById('firebase-error').textContent = msg;
       document.getElementById('firebase-error').style.display = 'block';
       document.getElementById('firebase-success').style.display = 'none';
-      console.error('[Firebase] Displayed error:', msg);
+      console.error('[Firebase]', msg);
   }
 
   function setLoading(v) {
@@ -138,7 +113,7 @@
       if (googleBtn) googleBtn.disabled = v;
   }
 
-  // ── Email/Password Registration ────────────────────────────────
+  // ── Email/Password Registration
   window.firebaseRegister = async function() {
       if (!auth) { showError('Firebase not configured.'); return; }
       const email   = document.getElementById('fb-email').value.trim();
@@ -151,30 +126,33 @@
       try {
           const cred  = await createUserWithEmailAndPassword(auth, email, pass);
           const token = await cred.user.getIdToken();
-          await sendTokenToServer(token);
+          sendTokenToServer(token);
       } catch(e) {
-          console.error('[Firebase] Register error:', e.code, e.message);
-          showError(e.code ? `${e.code}: ${e.message.replace('Firebase: ','')}` : e.message);
+          console.error('[Firebase] Register:', e.code, e.message);
+          showError(e.code ? `${e.code}: ${e.message.replace('Firebase: ', '')}` : e.message);
           setLoading(false);
       }
   };
 
-  // ── Google Sign-Up (redirect — reliable on all browsers) ────────
+  // ── Google Sign-Up (popup — synchronous, no redirect state to lose)
   window.firebaseGoogleLogin = async function() {
       if (!auth) { showError('Firebase not configured.'); return; }
+      setLoading(true);
       try {
           const provider = new GoogleAuthProvider();
           provider.setCustomParameters({ prompt: 'select_account' });
-          const googleBtn = document.getElementById('google-btn');
-          if (googleBtn) {
-              googleBtn.disabled = true;
-              googleBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Redirecting to Google...`;
-          }
-          await signInWithRedirect(auth, provider);
-          // Browser leaves this page — execution stops here
+          const cred  = await signInWithPopup(auth, provider);
+          const token = await cred.user.getIdToken();
+          sendTokenToServer(token);
       } catch(e) {
-          console.error('[Firebase] Google redirect error:', e.code, e.message);
-          showError(`Google Sign-In error: ${e.code || e.message}`);
+          console.error('[Firebase] Google popup:', e.code, e.message);
+          if (e.code === 'auth/popup-closed-by-user') {
+              showError('Sign-in cancelled. Please try again.');
+          } else if (e.code === 'auth/unauthorized-domain') {
+              showError('Domain not authorised. Add "localhost" to Firebase Authorised Domains.');
+          } else {
+              showError(e.code ? `${e.code}: ${e.message.replace('Firebase: ', '')}` : e.message);
+          }
           setLoading(false);
       }
   };

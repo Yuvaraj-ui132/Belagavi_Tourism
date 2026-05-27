@@ -101,8 +101,7 @@
       getAuth,
       signInWithEmailAndPassword,
       GoogleAuthProvider,
-      signInWithRedirect,
-      getRedirectResult,
+      signInWithPopup,
       sendPasswordResetEmail
   } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
@@ -115,46 +114,19 @@
     appId:             "{{ firebase_app_id }}"
   };
 
-  // Guard: only init if config is present
   let auth = null;
   if (firebaseConfig.apiKey && firebaseConfig.projectId) {
       const fbApp = initializeApp(firebaseConfig);
       auth = getAuth(fbApp);
   } else {
-      console.error('[Firebase] Config missing. Check env vars.');
+      console.error('[Firebase] Config missing — check server env vars.');
   }
 
-  // ── Handle redirect result when page loads after Google redirect ──
-  // This fires AFTER Google redirects the browser back to /login
-  if (auth) {
-      getRedirectResult(auth)
-          .then(result => {
-              if (!result) return;  // no pending redirect, normal page load
-              setLoading(true);
-              return result.user.getIdToken().then(sendTokenToServer);
-          })
-          .catch(e => {
-              console.error('[Firebase] Redirect result error:', e.code, e.message);
-              showError(`Google Sign-In failed: ${e.code || e.message}`);
-              setLoading(false);
-          });
-  }
-
-  // ── Send token to Flask — via hidden form POST (reliable session cookie) ──
-  // Using fetch()+window.location.href risks session cookie not being set
-  // before navigation. A form submit is atomic: Set-Cookie then 302.
-  async function sendTokenToServer(idToken) {
-      console.log('[Firebase] Submitting token to Flask via form POST...');
-      const field = document.getElementById('firebase-token-field');
-      const form  = document.getElementById('firebase-session-form');
-      if (!field || !form) {
-          console.error('[Firebase] Hidden form not found in DOM!');
-          showError('Internal error. Please refresh and try again.');
-          setLoading(false);
-          return;
-      }
-      field.value = idToken;
-      form.submit();  // Native browser POST — Flask redirects after login_user()
+  // ── Submit token via hidden form POST — guarantees session cookie set before redirect
+  function sendTokenToServer(idToken) {
+      console.log('[Firebase] Submitting token via form POST...');
+      document.getElementById('firebase-token-field').value = idToken;
+      document.getElementById('firebase-session-form').submit();
   }
 
   function showError(msg) {
@@ -163,18 +135,17 @@
       el.style.display = 'block';
       const ok = document.getElementById('forgot-success');
       if (ok) ok.style.display = 'none';
-      console.error('[Firebase] Displayed error:', msg);
+      console.error('[Firebase]', msg);
   }
 
-  function setLoading(loading) {
+  function setLoading(on) {
       const loginBtn  = document.getElementById('login-btn');
       const googleBtn = document.getElementById('google-btn');
-      if (loginBtn)  loginBtn.disabled  = loading;
-      if (googleBtn) googleBtn.disabled = loading;
-      if (googleBtn) googleBtn.textContent = loading ? 'Redirecting to Google...' : 'Continue with Google';
+      if (loginBtn)  loginBtn.disabled  = on;
+      if (googleBtn) googleBtn.disabled = on;
   }
 
-  // ── Firebase Email / Password login ──────────────────────────────
+  // ── Email/Password login
   window.firebaseEmailLogin = async function() {
       if (!auth) { showError('Firebase not configured. Use the username form below.'); return; }
       const email    = document.getElementById('fb-email').value.trim();
@@ -184,36 +155,38 @@
       try {
           const cred  = await signInWithEmailAndPassword(auth, email, password);
           const token = await cred.user.getIdToken();
-          await sendTokenToServer(token);
+          sendTokenToServer(token);
       } catch(e) {
-          console.error('[Firebase] Email login error:', e.code, e.message);
-          showError(e.code ? `${e.code}: ${e.message.replace('Firebase: ','')}` : e.message);
+          console.error('[Firebase] Email login:', e.code, e.message);
+          showError(e.code ? `${e.code}: ${e.message.replace('Firebase: ', '')}` : e.message);
           setLoading(false);
       }
   };
 
-  // ── Google Sign-In (redirect — works on all browsers, no popup) ──
+  // ── Google Sign-In (popup — synchronous result, no redirect state to lose)
   window.firebaseGoogleLogin = async function() {
       if (!auth) { showError('Firebase not configured.'); return; }
+      setLoading(true);
       try {
           const provider = new GoogleAuthProvider();
           provider.setCustomParameters({ prompt: 'select_account' });
-          // setLoading shown before redirect; page will reload after Google auth
-          const googleBtn = document.getElementById('google-btn');
-          if (googleBtn) {
-              googleBtn.disabled = true;
-              googleBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Redirecting to Google...`;
-          }
-          await signInWithRedirect(auth, provider);
-          // Browser leaves this page — execution stops here
+          const cred  = await signInWithPopup(auth, provider);
+          const token = await cred.user.getIdToken();
+          sendTokenToServer(token);
       } catch(e) {
-          console.error('[Firebase] Google redirect error:', e.code, e.message);
-          showError(`Google Sign-In error: ${e.code || e.message}`);
+          console.error('[Firebase] Google popup:', e.code, e.message);
+          if (e.code === 'auth/popup-closed-by-user') {
+              showError('Sign-in cancelled. Please try again.');
+          } else if (e.code === 'auth/unauthorized-domain') {
+              showError('Domain not authorised in Firebase Console. Add "localhost" to Authorised Domains.');
+          } else {
+              showError(e.code ? `${e.code}: ${e.message.replace('Firebase: ', '')}` : e.message);
+          }
           setLoading(false);
       }
   };
 
-  // ── Forgot Password ────────────────────────────────────────────────
+  // ── Forgot Password
   window.forgotPassword = async function() {
       if (!auth) { showError('Firebase not configured.'); return; }
       const email = document.getElementById('fb-email').value.trim();
@@ -225,8 +198,8 @@
           el.style.display = 'block';
           document.getElementById('firebase-error').style.display = 'none';
       } catch(e) {
-          console.error('[Firebase] Password reset error:', e.code, e.message);
-          showError(e.code ? `${e.code}: ${e.message.replace('Firebase: ','')}` : e.message);
+          console.error('[Firebase] Password reset:', e.code, e.message);
+          showError(e.code ? `${e.code}: ${e.message.replace('Firebase: ', '')}` : e.message);
       }
   };
 </script>
