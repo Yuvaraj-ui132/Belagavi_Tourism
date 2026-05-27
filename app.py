@@ -314,7 +314,7 @@ def directions_proxy():
     url = (
         f'https://maps.googleapis.com/maps/api/directions/json'
         f'?origin={origin}&destination={destination}'
-        f'&mode=driving&departure_time=now&traffic_model=best_guess'
+        f'&mode=driving'
         f'&key={key}'
     )
     try:

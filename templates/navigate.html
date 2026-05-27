@@ -95,25 +95,104 @@
                 🎯 Re-center
             </button>
         </div>
-        <a href="https://www.google.com/maps/dir/?api=1&destination={{ place.lat }},{{ place.lon }}"
-           target="_blank"
-           class="btn btn-success w-100 rounded-pill fw-bold shadow-sm"
-           style="font-size:0.85rem">
-            🗺️ Open Google Maps App
-        </a>
+        <!-- Dynamic Open Route button — origin set from geolocation at runtime -->
+        <button id="open-maps-btn"
+                onclick="openGoogleMapsRoute()"
+                class="btn btn-success w-100 rounded-pill fw-bold shadow-sm"
+                style="font-size:0.85rem">
+            🗺️ Open Route in Google Maps
+        </button>
     </div>
 </div>
 
 <script>
-const DEST_LAT = {{ place.lat | default("null") }};
-const DEST_LON = {{ place.lon | default("null") }};
+// ── Constants ──────────────────────────────────────────────────────────────
+const DEST_LAT   = {{ place.lat | default("null") }};
+const DEST_LON   = {{ place.lon | default("null") }};
 const PLACE_NAME = {{ place.name | tojson }};
 const BELAGAVI_LAT = 15.8626;
 const BELAGAVI_LON = 74.5177;
+const BELAGAVI_LABEL = 'Belagavi, Karnataka';
 
 let map, userMarker, routePolyline, destMarker;
+let _lastUserLat = null, _lastUserLng = null;  // updated each time we get location
 
-// ── Polyline decoder (Google encoded polyline format) ──────────────────
+// ── Utilities ──────────────────────────────────────────────────────────────
+function setStatus(msg) {
+    const el = document.getElementById('nav-status');
+    if (el) el.textContent = msg;
+}
+
+function isValidCoord(lat, lng) {
+    return typeof lat === 'number' && typeof lng === 'number'
+        && !isNaN(lat) && !isNaN(lng)
+        && lat >= -90 && lat <= 90
+        && lng >= -180 && lng <= 180;
+}
+
+// ── Build a Google Maps directions URL (ALWAYS works, no API key needed) ──
+function buildGoogleMapsUrl(originLat, originLng, isFallback) {
+    let origin;
+    if (!isFallback && isValidCoord(originLat, originLng)) {
+        origin = `${originLat},${originLng}`;
+    } else {
+        origin = BELAGAVI_LABEL;
+    }
+
+    let destination;
+    if (isValidCoord(DEST_LAT, DEST_LON)) {
+        destination = `${DEST_LAT},${DEST_LON}`;
+    } else {
+        // Fallback: use place name + Belagavi for geocoding
+        destination = encodeURIComponent(`${PLACE_NAME} Belagavi Karnataka`);
+    }
+
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+    console.log('[Nav] Google Maps URL:', url);
+    return url;
+}
+
+// ── Open Google Maps with live geolocation origin ──────────────────────────
+function openGoogleMapsRoute() {
+    if (_lastUserLat !== null && isValidCoord(_lastUserLat, _lastUserLng)) {
+        // We already have their location from a previous findRoute() call
+        window.open(buildGoogleMapsUrl(_lastUserLat, _lastUserLng, false), '_blank');
+        return;
+    }
+    // Try to get location now
+    if (!navigator.geolocation) {
+        console.log('[Nav] Geolocation not supported — using Belagavi fallback');
+        window.open(buildGoogleMapsUrl(null, null, true), '_blank');
+        return;
+    }
+    const btn = document.getElementById('open-maps-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '📍 Getting location...'; }
+
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            const { latitude: lat, longitude: lng } = pos.coords;
+            console.log('[Nav] Got location for Maps URL:', lat, lng);
+            _lastUserLat = lat;
+            _lastUserLng = lng;
+            if (btn) { btn.disabled = false; btn.textContent = '🗺️ Open Route in Google Maps'; }
+            // Validate: must be within India bounds
+            if (lat < 5 || lat > 37 || lng < 65 || lng > 98) {
+                console.warn('[Nav] Location outside India — using Belagavi fallback');
+                window.open(buildGoogleMapsUrl(null, null, true), '_blank');
+            } else {
+                window.open(buildGoogleMapsUrl(lat, lng, false), '_blank');
+            }
+        },
+        err => {
+            console.warn('[Nav] Geolocation denied/failed for Maps URL:', err.message);
+            if (btn) { btn.disabled = false; btn.textContent = '🗺️ Open Route in Google Maps'; }
+            window.open(buildGoogleMapsUrl(null, null, true), '_blank');
+        },
+        { timeout: 6000, enableHighAccuracy: false }
+    );
+}
+
+// ── Polyline decoder (Google encoded polyline format) ──────────────────────
 function decodePolyline(encoded) {
     const pts = [];
     let idx = 0, lat = 0, lng = 0;
@@ -129,9 +208,15 @@ function decodePolyline(encoded) {
     return pts;
 }
 
-// ── Map init — show only destination marker ─────────────────────────────
+// ── Map init ────────────────────────────────────────────────────────────────
 function initNavigationMap() {
-    if (!window.google || DEST_LAT === null) return;
+    if (!window.google) { console.error('[Nav] Google Maps JS not loaded'); return; }
+    if (!isValidCoord(DEST_LAT, DEST_LON)) {
+        console.warn('[Nav] No valid destination coordinates — showing name-based route button');
+        setStatus('📍 ' + PLACE_NAME + ' (approximate location)');
+        loadWeather();
+        return;
+    }
 
     map = new google.maps.Map(document.getElementById('place-map'), {
         center: { lat: DEST_LAT, lng: DEST_LON },
@@ -154,81 +239,109 @@ function initNavigationMap() {
     loadWeather();
 }
 
-function setStatus(msg) {
-    const el = document.getElementById('nav-status');
-    if (el) el.textContent = msg;
-}
-
-// ── Weather (Open-Meteo, free) ──────────────────────────────────────────
+// ── Weather (Open-Meteo, free, no key needed) ──────────────────────────────
 function loadWeather() {
-    if (!DEST_LAT) return;
+    if (!isValidCoord(DEST_LAT, DEST_LON)) return;
     fetch(`https://api.open-meteo.com/v1/forecast?latitude=${DEST_LAT}&longitude=${DEST_LON}&current_weather=true`)
         .then(r => r.json())
         .then(data => {
             if (!data.current_weather) return;
             const { temperature: temp, weathercode: code } = data.current_weather;
-            const icons = { 0:'☀️', 1:'🌤️', 2:'⛅', 3:'☁️', 45:'🌫️', 48:'🌫️', 51:'🌦️', 61:'🌧️', 71:'❄️', 80:'🌦️', 95:'⛈️' };
-            const descs = { 0:'Clear', 1:'Mostly Clear', 2:'Partly Cloudy', 3:'Overcast', 45:'Foggy', 48:'Foggy', 51:'Drizzle', 61:'Rain', 71:'Snow', 80:'Showers', 95:'Thunderstorm' };
+            const icons = { 0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',61:'🌧️',71:'❄️',80:'🌦️',95:'⛈️' };
+            const descs = { 0:'Clear',1:'Mostly Clear',2:'Partly Cloudy',3:'Overcast',45:'Foggy',48:'Foggy',51:'Drizzle',61:'Rain',71:'Snow',80:'Showers',95:'Thunderstorm' };
             const icon = icons[code] || (code >= 51 && code <= 67 ? '🌧️' : code >= 80 ? '🌦️' : '☀️');
             const desc = descs[code] || (code >= 51 ? 'Rainy' : 'Clear');
-
             let tip = '✅ Great weather!', tipColor = '#16a34a';
-            if (temp > 37) { tip = '🔥 Very hot! Stay hydrated'; tipColor = '#dc2626'; }
-            else if (temp > 32) { tip = '🌡️ Hot — carry water'; tipColor = '#d97706'; }
-            else if (code >= 51 && code <= 95) { tip = '☔ Carry umbrella'; tipColor = '#2563eb'; }
-
-            document.getElementById('w-icon').textContent = icon;
-            document.getElementById('w-temp').textContent = `${temp}°C`;
-            document.getElementById('w-desc').textContent = desc;
+            if (temp > 37)                        { tip = '🔥 Very hot! Stay hydrated'; tipColor = '#dc2626'; }
+            else if (temp > 32)                   { tip = '🌡️ Hot — carry water';      tipColor = '#d97706'; }
+            else if (code >= 51 && code <= 95)    { tip = '☔ Carry umbrella';          tipColor = '#2563eb'; }
+            document.getElementById('w-icon').textContent  = icon;
+            document.getElementById('w-temp').textContent  = `${temp}°C`;
+            document.getElementById('w-desc').textContent  = desc;
             const tipEl = document.getElementById('w-tip');
-            tipEl.textContent = tip;
+            tipEl.textContent   = tip;
             tipEl.style.background = tipColor + '20';
-            tipEl.style.color = tipColor;
-            tipEl.style.border = `1px solid ${tipColor}40`;
+            tipEl.style.color      = tipColor;
+            tipEl.style.border     = `1px solid ${tipColor}40`;
             document.getElementById('weather-strip').style.display = 'flex';
         })
-        .catch(() => {});
+        .catch(err => console.warn('[Nav] Weather fetch failed:', err));
 }
 
-// ── Find Route ─────────────────────────────────────────────────────────
+// ── Find Route (triggered by Find Route button) ────────────────────────────
 function findRoute() {
-    if (!map) return;
+    if (!map) {
+        // No map (coords missing) — open Google Maps directly
+        openGoogleMapsRoute();
+        return;
+    }
     const btn = document.getElementById('find-route-btn');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Locating...';
     setStatus('Getting your location...');
 
     if (!navigator.geolocation) {
+        console.log('[Nav] Geolocation not available — using Belagavi fallback');
         calcRoute(BELAGAVI_LAT, BELAGAVI_LON, true);
         return;
     }
+
     navigator.geolocation.getCurrentPosition(
         pos => {
             const { latitude: lat, longitude: lng } = pos.coords;
-            // Sanity check — if outside India, use Belagavi
+            console.log('[Nav] User location:', lat, lng);
+            // Validate: must be within India
             if (lat < 5 || lat > 37 || lng < 65 || lng > 98) {
+                console.warn('[Nav] Coords outside India bounds — using Belagavi fallback');
                 calcRoute(BELAGAVI_LAT, BELAGAVI_LON, true);
             } else {
+                _lastUserLat = lat;
+                _lastUserLng = lng;
                 calcRoute(lat, lng, false);
             }
         },
-        () => calcRoute(BELAGAVI_LAT, BELAGAVI_LON, true),
+        err => {
+            console.warn('[Nav] Geolocation error:', err.code, err.message);
+            calcRoute(BELAGAVI_LAT, BELAGAVI_LON, true);
+        },
         { timeout: 8000, enableHighAccuracy: true }
     );
 }
 
-async function calcRoute(userLat, userLng, isFallback) {
-    setStatus(isFallback ? 'Using Belagavi CBT as start...' : 'Calculating route...');
+// ── Show fallback when Directions API fails ────────────────────────────────
+function showFallbackRoute(userLat, userLng, isFallback, reason) {
+    console.warn('[Nav] Directions API failed — showing fallback. Reason:', reason);
+    const mapsUrl = buildGoogleMapsUrl(userLat, userLng, isFallback);
+    setStatus('🗺️ Tap below to open route in Google Maps');
 
-    // Place or move user marker
+    // Update the route-info card to show a clear open-maps button
+    document.getElementById('dist-val').textContent = '—';
+    document.getElementById('time-val').textContent = '—';
+    document.getElementById('route-info').style.display = 'block';
+
+    // Replace the open-maps button with a direct link
+    const btn = document.getElementById('open-maps-btn');
+    if (btn) {
+        btn.onclick = () => window.open(mapsUrl, '_blank');
+        btn.textContent = '🗺️ Open Route in Google Maps';
+        btn.disabled = false;
+    }
+}
+
+// ── Calculate route via server-side proxy ────────────────────────────────
+async function calcRoute(userLat, userLng, isFallback) {
+    setStatus(isFallback ? '🔄 Using Belagavi as start...' : '🔄 Calculating route...');
+
     const userPos = { lat: userLat, lng: userLng };
+
+    // Place / update user marker on map
     if (userMarker) {
         userMarker.setPosition(userPos);
     } else {
         userMarker = new google.maps.Marker({
             position: userPos,
             map: map,
-            title: isFallback ? 'Belagavi CBT (Start)' : 'Your Location',
+            title: isFallback ? 'Belagavi (Start)' : 'Your Location',
             draggable: true,
             animation: google.maps.Animation.DROP,
             icon: {
@@ -248,19 +361,27 @@ async function calcRoute(userLat, userLng, isFallback) {
 
     const btn = document.getElementById('find-route-btn');
 
+    // Guard: need valid destination coords for API call
+    if (!isValidCoord(DEST_LAT, DEST_LON)) {
+        console.warn('[Nav] Destination coords missing — skipping API, showing fallback');
+        showFallbackRoute(userLat, userLng, isFallback, 'no destination coords');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-route me-1"></i> Find Route';
+        return;
+    }
+
     try {
-        // Call server-side proxy (keeps Directions API key hidden)
-        const res = await fetch(`/api/directions?origin=${userLat},${userLng}&destination=${DEST_LAT},${DEST_LON}`);
+        console.log(`[Nav] Calling /api/directions: origin=${userLat},${userLng} dest=${DEST_LAT},${DEST_LON}`);
+        const res  = await fetch(`/api/directions?origin=${userLat},${userLng}&destination=${DEST_LAT},${DEST_LON}`);
         const data = await res.json();
+        console.log('[Nav] Directions API status:', data.status);
 
         if (data.status === 'OK' && data.routes && data.routes.length > 0) {
             const route = data.routes[0];
-            const leg = route.legs[0];
+            const leg   = route.legs[0];
 
-            // Clear previous route polyline
+            // Draw route polyline
             if (routePolyline) routePolyline.setMap(null);
-
-            // Decode and draw actual road route
             const path = decodePolyline(route.overview_polyline.points);
             routePolyline = new google.maps.Polyline({
                 path,
@@ -271,7 +392,7 @@ async function calcRoute(userLat, userLng, isFallback) {
                 zIndex: 2
             });
 
-            // Fit bounds to show full route
+            // Fit map to full route
             const bounds = new google.maps.LatLngBounds();
             bounds.extend(userPos);
             bounds.extend({ lat: DEST_LAT, lng: DEST_LON });
@@ -281,39 +402,48 @@ async function calcRoute(userLat, userLng, isFallback) {
             document.getElementById('dist-val').textContent = leg.distance.text;
             document.getElementById('time-val').textContent = leg.duration.text;
 
-            // Traffic info
-            if (leg.duration_in_traffic && leg.duration_in_traffic.value > leg.duration.value + 120) {
-                document.getElementById('traffic-val').textContent = leg.duration_in_traffic.text;
-                document.getElementById('traffic-box').style.display = 'block';
-                document.getElementById('traffic-div').style.display = 'block';
-            } else {
-                document.getElementById('traffic-box').style.display = 'none';
-                document.getElementById('traffic-div').style.display = 'none';
-            }
+            // Hide traffic (requires Premium — removed to prevent REQUEST_DENIED)
+            document.getElementById('traffic-box').style.display = 'none';
+            document.getElementById('traffic-div').style.display = 'none';
 
             document.getElementById('route-info').style.display = 'block';
-            setStatus(isFallback ? '🚗 Route from Belagavi CBT' : '🚗 Route calculated from your location');
+            setStatus(isFallback
+                ? `🚗 Route from Belagavi — ${leg.distance.text}, ${leg.duration.text}`
+                : `🚗 Route from your location — ${leg.distance.text}, ${leg.duration.text}`);
+
+            // Also update the Google Maps button to use correct origin
+            const mapsUrl = buildGoogleMapsUrl(userLat, userLng, isFallback);
+            const openBtn = document.getElementById('open-maps-btn');
+            if (openBtn) openBtn.onclick = () => window.open(mapsUrl, '_blank');
+
         } else {
-            throw new Error(data.error_message || data.status || 'No route found');
+            // API returned non-OK status (ZERO_RESULTS, REQUEST_DENIED, etc.)
+            console.warn('[Nav] Directions API returned:', data.status, data.error_message || '');
+            showFallbackRoute(userLat, userLng, isFallback,
+                data.error_message || data.status || 'No route found');
         }
     } catch (err) {
-        console.error('Route error:', err);
-        setStatus('⚠️ Routing failed — try "Open Google Maps App"');
+        console.error('[Nav] Directions fetch error:', err);
+        showFallbackRoute(userLat, userLng, isFallback, err.message);
     }
 
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-route me-1"></i> Find Route';
 }
 
+// ── Helper buttons ──────────────────────────────────────────────────────────
 function useBelagaviStart() {
     calcRoute(BELAGAVI_LAT, BELAGAVI_LON, true);
 }
 
 function recenterDest() {
-    if (map) { map.setCenter({ lat: DEST_LAT, lng: DEST_LON }); map.setZoom(14); }
+    if (map && isValidCoord(DEST_LAT, DEST_LON)) {
+        map.setCenter({ lat: DEST_LAT, lng: DEST_LON });
+        map.setZoom(14);
+    }
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────
+// ── Boot ────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
     if (window.googleMapsLoaded) initNavigationMap();
     else window.onGoogleMapsReady = initNavigationMap;
