@@ -59,8 +59,14 @@
 
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-  import { getAuth, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, updateProfile }
-      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      GoogleAuthProvider,
+      signInWithRedirect,
+      getRedirectResult,
+      updateProfile
+  } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
   const firebaseConfig = {
     apiKey:            "{{ firebase_api_key }}",
@@ -72,61 +78,100 @@
   };
 
   let auth = null;
-  if (firebaseConfig.apiKey) {
+  if (firebaseConfig.apiKey && firebaseConfig.projectId) {
       const fbApp = initializeApp(firebaseConfig);
       auth = getAuth(fbApp);
+  } else {
+      console.error('[Firebase] Config missing. Check env vars.');
+  }
+
+  // ── Handle redirect result when page reloads after Google redirect ──
+  if (auth) {
+      getRedirectResult(auth)
+          .then(result => {
+              if (!result) return;  // normal page load, no pending redirect
+              setLoading(true);
+              return result.user.getIdToken().then(sendTokenToServer);
+          })
+          .catch(e => {
+              console.error('[Firebase] Redirect result error:', e.code, e.message);
+              showError(`Google Sign-In failed: ${e.code || e.message}`);
+              setLoading(false);
+          });
   }
 
   async function sendTokenToServer(idToken) {
-      const res = await fetch('/auth/firebase', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken })
-      });
-      const data = await res.json();
-      if (data.redirect) window.location.href = data.redirect;
-      else showError(data.error || 'Server error');
+      try {
+          const res = await fetch('/auth/firebase', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ idToken })
+          });
+          const data = await res.json();
+          if (data.redirect) {
+              window.location.href = data.redirect;
+          } else {
+              showError(data.error || 'Server error. Please try again.');
+              setLoading(false);
+          }
+      } catch (e) {
+          console.error('[Firebase] sendTokenToServer error:', e);
+          showError('Network error. Please check your connection.');
+          setLoading(false);
+      }
   }
 
   function showError(msg) {
       document.getElementById('firebase-error').textContent = msg;
       document.getElementById('firebase-error').style.display = 'block';
       document.getElementById('firebase-success').style.display = 'none';
+      console.error('[Firebase] Displayed error:', msg);
   }
 
   function setLoading(v) {
-      document.getElementById('register-btn').disabled = v;
-      document.getElementById('google-btn').disabled = v;
+      const regBtn    = document.getElementById('register-btn');
+      const googleBtn = document.getElementById('google-btn');
+      if (regBtn)    regBtn.disabled    = v;
+      if (googleBtn) googleBtn.disabled = v;
   }
 
+  // ── Email/Password Registration ────────────────────────────────
   window.firebaseRegister = async function() {
       if (!auth) { showError('Firebase not configured.'); return; }
-      const email = document.getElementById('fb-email').value.trim();
-      const pass = document.getElementById('fb-password').value;
+      const email   = document.getElementById('fb-email').value.trim();
+      const pass    = document.getElementById('fb-password').value;
       const confirm = document.getElementById('fb-confirm').value;
       if (!email || !pass) { showError('Email and password are required.'); return; }
       if (pass !== confirm) { showError('Passwords do not match.'); return; }
       if (pass.length < 6) { showError('Password must be at least 6 characters.'); return; }
       setLoading(true);
       try {
-          const cred = await createUserWithEmailAndPassword(auth, email, pass);
+          const cred  = await createUserWithEmailAndPassword(auth, email, pass);
           const token = await cred.user.getIdToken();
           await sendTokenToServer(token);
       } catch(e) {
-          showError(e.message.replace('Firebase: ', ''));
+          console.error('[Firebase] Register error:', e.code, e.message);
+          showError(e.code ? `${e.code}: ${e.message.replace('Firebase: ','')}` : e.message);
           setLoading(false);
       }
   };
 
+  // ── Google Sign-Up (redirect — reliable on all browsers) ────────
   window.firebaseGoogleLogin = async function() {
       if (!auth) { showError('Firebase not configured.'); return; }
-      setLoading(true);
       try {
-          const cred = await signInWithPopup(auth, new GoogleAuthProvider());
-          const token = await cred.user.getIdToken();
-          await sendTokenToServer(token);
+          const provider = new GoogleAuthProvider();
+          provider.setCustomParameters({ prompt: 'select_account' });
+          const googleBtn = document.getElementById('google-btn');
+          if (googleBtn) {
+              googleBtn.disabled = true;
+              googleBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Redirecting to Google...`;
+          }
+          await signInWithRedirect(auth, provider);
+          // Browser leaves this page — execution stops here
       } catch(e) {
-          showError(e.message.replace('Firebase: ', ''));
+          console.error('[Firebase] Google redirect error:', e.code, e.message);
+          showError(`Google Sign-In error: ${e.code || e.message}`);
           setLoading(false);
       }
   };
