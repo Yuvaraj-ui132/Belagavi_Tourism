@@ -51,73 +51,74 @@
     </div>
 </div>
 
-<!-- 🔥 MODERN FULLSCREEN EXPLORE SECTION -->
-<div id="explore" class="section bg-light p-0 position-relative explore-view" style="display:none; height: calc(100vh - 125px); width: 100%; overflow: hidden;">
-    
+<!-- EXPLORE SECTION — Map primary, side panel for places list -->
+<div id="explore" class="section p-0 position-relative" style="display:none; height: calc(100vh - 125px); overflow: hidden;">
+
     <!-- Floating Top Bar -->
-    <div class="explore-top-bar shadow-sm">
+    <div class="explore-top-bar shadow" style="position:absolute;top:12px;left:50%;transform:translateX(-50%);width:calc(100% - 24px);max-width:560px;z-index:600;background:rgba(255,255,255,0.97);backdrop-filter:blur(12px);border-radius:16px;padding:12px 14px;">
         <div class="d-flex gap-2 align-items-center mb-2">
-            <input type="text" id="exploreSearch" class="form-control rounded-pill border-0 shadow-sm px-3" 
-                   placeholder="Search Belagavi..." onkeyup="applyExploreFilters()">
-            <button class="btn btn-dark rounded-pill shadow-sm text-nowrap px-3" onclick="toggleExploreView()">
-                <span id="view-toggle-text"><i class="fa-solid fa-table-cells me-1"></i> Grid</span>
+            <input type="text" id="exploreSearch" class="form-control rounded-pill border-0 shadow-sm px-3"
+                   placeholder="Search places..." onkeyup="applyExploreFilters()" style="font-size:0.88rem">
+            <button class="btn btn-dark rounded-pill shadow-sm text-nowrap px-3 fw-bold"
+                    onclick="toggleSidePanel()" style="font-size:0.82rem; flex-shrink:0">
+                <i class="fa-solid fa-bars-staggered me-1"></i><span id="panel-btn-text">Places</span>
             </button>
         </div>
-        
         <!-- Category Pills -->
-        <div class="d-flex gap-2 overflow-auto pb-1" style="white-space: nowrap; scrollbar-width: none;">
-            <button class="btn btn-sm btn-primary rounded-pill explore-filter-btn" data-cat="all" onclick="setCategory('all', this)">All</button>
-            <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="waterfall" onclick="setCategory('waterfall', this)">Waterfall</button>
-            <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="temple" onclick="setCategory('temple', this)">Temple</button>
-            <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="fort" onclick="setCategory('fort', this)">Fort</button>
-            <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="nature" onclick="setCategory('nature', this)">Nature</button>
+        <div class="d-flex gap-2 overflow-auto pb-1" style="white-space:nowrap;scrollbar-width:none">
+            <button class="btn btn-sm btn-primary rounded-pill explore-filter-btn fw-bold" data-cat="all" onclick="setCategory('all',this)">All</button>
+            <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="waterfall" onclick="setCategory('waterfall',this)">💧 Waterfall</button>
+            <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="temple" onclick="setCategory('temple',this)">🛕 Temple</button>
+            <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="fort" onclick="setCategory('fort',this)">🏰 Fort</button>
+            <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="nature" onclick="setCategory('nature',this)">🌿 Nature</button>
+            <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="wildlife" onclick="setCategory('wildlife',this)">🦅 Wildlife</button>
         </div>
     </div>
 
-    <!-- 🗺️ MAP VIEW -->
-    <div id="explore-map-container" class="h-100 w-100 position-relative explore-view">
-        <div id="explore-map" class="h-100 w-100"></div>
-        <button class="btn btn-light shadow rounded-circle position-absolute d-flex align-items-center justify-content-center" 
-                style="bottom: 20px; right: 20px; z-index: 1000; width: 50px; height: 50px; font-size: 1.2rem; color: #2563eb;"
-                onclick="recenterExploreMap()">
-            <i class="fa-solid fa-location-crosshairs"></i>
-        </button>
+    <!-- Full-screen map -->
+    <div id="explore-map" class="h-100 w-100"></div>
+
+    <!-- Recenter button -->
+    <button onclick="recenterExploreMap()"
+            class="btn btn-white shadow rounded-circle d-flex align-items-center justify-content-center"
+            style="position:absolute;bottom:24px;right:16px;z-index:600;width:46px;height:46px;background:white;border:none">
+        <i class="fa-solid fa-location-crosshairs text-primary" style="font-size:1.1rem"></i>
+    </button>
+
+    <!-- No results message -->
+    <div id="no-results-msg" class="position-absolute top-50 start-50 translate-middle text-center"
+         style="display:none;z-index:500;pointer-events:none">
+        <i class="fa-solid fa-magnifying-glass text-muted" style="font-size:2.5rem;opacity:0.4"></i>
+        <h6 class="text-muted mt-3 fw-bold">No places found</h6>
     </div>
 
-    <!-- 📱 GRID VIEW -->
-    <div id="explore-grid-container" class="h-100 w-100 pt-3 px-3 overflow-auto explore-view" style="display: none; padding-top: 115px !important;">
-        <div class="row g-3 pb-5" id="fullList">
-            {% for p in all_places_list %}
-            <div class="col-6 col-md-4 col-lg-3 explore-item search-item" 
-                 data-name="{{ p.name.lower() }}" 
-                 data-category="{{ p.category.lower() }}"
-                 data-folder="{{ p.folder_name }}"
-                 data-id="{{ p.id }}">
-                 
-                <a href="{{ url_for('place_details', place_id=p.id) }}" class="text-decoration-none text-dark d-block h-100">
-                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
-                        <img src="{{ url_for('static', filename='images/' + p.folder_name + '/1.jpg') }}" alt="{{ p.name }}" loading="lazy" style="width: 100%; height: 120px; object-fit: cover;">
-                        <div class="card-body p-2 d-flex flex-column">
-                            <h6 class="small fw-bold mb-1 text-truncate">{{ p.name }}</h6>
-                            <small class="text-muted text-truncate d-block mb-2">{{ p.category }}</small>
-                            <div class="d-flex gap-1 mt-auto">
-                                <button type="button" class="btn btn-sm btn-outline-primary w-100" onclick="event.preventDefault(); event.stopPropagation(); toggleWishlist(this, {{ p.id }}, {{ p.name|tojson }}, {{ p.folder_name|tojson }})"><i class="fa-solid fa-heart"></i></button>
-                            </div>
-                        </div>
-                    </div>
-                </a>
+    <!-- Slide-in side panel (hidden by default) -->
+    <div id="explore-side-panel"
+         style="position:absolute;top:0;right:-310px;width:295px;height:100%;background:white;
+                z-index:700;box-shadow:-6px 0 24px rgba(0,0,0,0.12);
+                transition:right 0.28s cubic-bezier(0.4,0,0.2,1);
+                overflow-y:auto;overscroll-behavior:contain">
+        <div style="position:sticky;top:0;background:white;z-index:10;padding:16px 14px 10px">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="fw-bold mb-0" style="font-size:0.92rem">All Places</h6>
+                    <small class="text-muted" id="panel-count" style="font-size:0.75rem">Loading...</small>
+                </div>
+                <button onclick="toggleSidePanel()"
+                        class="btn btn-sm btn-light rounded-circle d-flex align-items-center justify-content-center"
+                        style="width:30px;height:30px;padding:0;border:none">
+                    <i class="fa-solid fa-xmark" style="font-size:0.8rem"></i>
+                </button>
             </div>
-            {% endfor %}
-            
-            <div id="no-results-msg" class="col-12 text-center p-5" style="display: none;">
-                <i class="fa-solid fa-magnifying-glass text-muted" style="font-size: 3rem; opacity: 0.5;"></i>
-                <h5 class="text-muted mt-3 fw-bold">No places found</h5>
-            </div>
+        </div>
+        <div id="side-panel-list" class="px-3 pb-5">
+            <!-- Dynamically populated from allPlacesData in main.js -->
         </div>
     </div>
 </div>
 
 <!-- Wishlist Section -->
+
 <div id="wishlist" class="section mt-4 explore-view" style="display:none;">
     <h5 class="fw-bold mb-3 px-3"><i class="fa-solid fa-heart text-danger me-2"></i>My Saved Places</h5>
     <div id="wishlist-items" class="px-3 pb-5">

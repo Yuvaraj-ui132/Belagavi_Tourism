@@ -183,3 +183,47 @@ body {
     box-shadow: none;
     border-color: #0d6efd;
 }
+
+/* --- REVIEWS & RATINGS --- */
+.review-star {
+    cursor: pointer;
+    font-size: 1.4rem;
+    transition: transform 0.15s ease, color 0.15s ease;
+    color: #d1d5db; /* unfilled — grey */
+}
+.review-star:hover {
+    transform: scale(1.25);
+}
+.review-star.star-filled,
+.review-star.star-filled:hover {
+    color: #f59e0b; /* amber-500 */
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+}
+/* FontAwesome swap: hollow → solid on fill */
+.review-star.star-filled::before {
+    content: '\f005'; /* solid star codepoint */
+}
+
+.review-card {
+    transition: box-shadow 0.2s ease;
+    border-color: rgba(0,0,0,0.06) !important;
+}
+.review-card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.09) !important;
+}
+
+/* --- SERVICE WORKER / OFFLINE --- */
+#offline-banner {
+    display: none;
+    position: fixed;
+    top: 56px;
+    left: 0; right: 0;
+    background: #1e293b;
+    color: white;
+    text-align: center;
+    font-size: 0.82rem;
+    padding: 8px;
+    z-index: 9999;
+    font-weight: 600;
+}

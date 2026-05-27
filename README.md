@@ -1,53 +1,26 @@
 # Belagavi Tourism Planner 🗺️
 
-A full-stack, Progressive Web Application (PWA) designed to help users explore, plan, and manage their trips across the historic city of Belagavi, Karnataka.
+A professional, interactive tourism platform for exploring the hidden gems of Belagavi District. Built with Flask, Google Maps API, and Firebase.
 
 ## 🚀 Features
-- **Interactive Explore Map:** Full-screen mapping powered by Leaflet.js, displaying categorized tourist destinations.
-- **Secure Admin Dashboard:** A hidden, role-based dashboard for content management (Add, Edit, Delete places).
-- **Personalized Wishlist:** Users can save their favorite locations for future trip planning.
-- **Budget & Expense Tracker:** Integrated financial tracker to manage travel expenses by location and category.
-- **Progressive Web App (PWA):** Installable on mobile and desktop devices with offline caching via Service Workers.
-- **Modern UI/UX:** Built with Bootstrap 5, featuring responsive design, glassmorphism elements, and smooth micro-animations.
+- **Map-First Explore**: Interactive Google Map with Marker Clustering and Search.
+- **Traffic-Aware Routing**: Real-time road navigation with distance, time, and traffic data.
+- **Smart Budgeting**: Integrated expense manager to track trip costs.
+- **Firebase Auth**: Secure Google Sign-In and Email authentication.
+- **Progressive Web App (PWA)**: Installable on mobile with offline caching support.
+- **Admin Dashboard**: Manage places and content dynamically.
 
-## 🛠️ Technology Stack
-- **Backend:** Python, Flask, Flask-SQLAlchemy, Flask-Login, Werkzeug
-- **Database:** SQLite
-- **Frontend:** HTML5, Vanilla CSS, JavaScript, Bootstrap 5
-- **Mapping:** Leaflet.js, Leaflet MarkerCluster
+## 🛠️ Tech Stack
+- **Backend**: Flask, SQLAlchemy, Flask-Login, Firebase Admin SDK
+- **Frontend**: Vanilla JS, Bootstrap 5, CSS3, Google Maps JS API
+- **Deployment**: Render (Web Service + PostgreSQL)
+- **Database**: SQLite (Dev) / PostgreSQL (Prod)
 
-## 💻 How to Run Locally
+## 🔧 Setup
+1. Clone the repo.
+2. Create a `.env` file with required keys (see `render.yaml` for keys).
+3. Install dependencies: `pip install -r requirements.txt`.
+4. Run: `python app.py`.
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/your-username/belagavi-tourism-planner.git
-   cd belagavi-tourism-planner
-   ```
-
-2. **Create and activate a virtual environment:**
-   ```bash
-   python -m venv venv
-   # On Windows:
-   venv\Scripts\activate
-   # On Mac/Linux:
-   source venv/bin/activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Run the application:**
-   ```bash
-   python app.py
-   ```
-   *The database (`belagavi.db`) will automatically initialize on the first run.*
-
-5. **Access the application:**
-   Open your browser and navigate to `http://127.0.0.1:5000`
-
-## 🔐 Admin Access
-To access the Admin Dashboard for content management:
-1. Register a new account with the designated admin username.
-2. Navigate to the top-right menu and click on the "Admin" button.
+---
+*Created as a career-grade project focusing on high-performance GIS and secure authentication.*

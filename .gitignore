@@ -5,3 +5,4 @@ instance/
 .env
 .DS_Store
 belagavi.db
+serviceAccountKey.json

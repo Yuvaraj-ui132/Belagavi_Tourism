@@ -1,286 +1,322 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- ✅ Leaflet CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-<!-- ✅ Leaflet JS -->
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<!-- ✅ Routing CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css">
-<!-- ✅ Routing JS -->
-<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
-
 <style>
     .nav-top-bar {
         position: absolute;
-        top: 15px;
+        top: 14px;
         left: 50%;
         transform: translateX(-50%);
-        width: 90%;
-        max-width: 500px;
+        width: calc(100% - 28px);
+        max-width: 520px;
         z-index: 1000;
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        border-radius: 15px;
-        padding: 15px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        background: rgba(255,255,255,0.97);
+        backdrop-filter: blur(14px);
+        border-radius: 18px;
+        padding: 14px 16px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.14);
     }
-    
-    /* Ensure Leaflet controls stay behind the top bar */
-    .leaflet-top, .leaflet-bottom {
-        z-index: 900 !important;
+    .route-info-card {
+        position: absolute;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100% - 28px);
+        max-width: 480px;
+        z-index: 1000;
+        background: white;
+        border-radius: 20px;
+        padding: 18px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.16);
+        display: none;
     }
+    .stat-box { text-align: center; flex: 1; }
+    .stat-box .label { font-size: 0.7rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .stat-box .value { font-size: 0.95rem; font-weight: 700; color: #1e293b; }
+    .weather-strip { display: flex; align-items: center; gap: 10px; padding: 8px 0 0; margin-top: 8px; border-top: 1px solid #f1f5f9; }
+    #find-route-btn { white-space: nowrap; }
 </style>
 
 <div class="position-relative" style="height: calc(100vh - 125px); width: 100%; overflow: hidden;">
-    
-    <!-- Floating Top Bar -->
-    <div class="nav-top-bar d-flex justify-content-between align-items-center">
-        <div>
-            <h6 class="fw-bold mb-1 text-truncate" style="max-width: 250px;">{{ place.name }}</h6>
-            <small class="text-muted d-block">Navigating to destination...</small>
+
+    <!-- Top Floating Bar -->
+    <div class="nav-top-bar">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="me-2 overflow-hidden">
+                <div class="fw-bold text-dark text-truncate" style="font-size:0.95rem">{{ place.name }}</div>
+                <small id="nav-status" class="text-muted">📍 Loading map...</small>
+            </div>
+            <button id="find-route-btn" onclick="findRoute()"
+                    class="btn btn-primary rounded-pill fw-bold shadow-sm px-3 py-2 flex-shrink-0"
+                    style="font-size:0.85rem">
+                <i class="fa-solid fa-route me-1"></i> Find Route
+            </button>
         </div>
-        <button onclick="locateUser()" class="btn btn-primary rounded-pill fw-bold shadow-sm px-3">
-            📍 Locate Me
-        </button>
+        <!-- Weather strip (shown after load) -->
+        <div id="weather-strip" class="weather-strip" style="display:none">
+            <span id="w-icon" style="font-size:1.4rem"></span>
+            <div>
+                <span id="w-temp" class="fw-bold small text-dark"></span>
+                <span id="w-desc" class="text-muted small ms-1"></span>
+            </div>
+            <span id="w-tip" class="badge ms-auto rounded-pill" style="font-size:0.68rem"></span>
+        </div>
     </div>
 
     <!-- Map Container -->
     <div id="place-map" class="h-100 w-100"></div>
-    
-    <!-- Floating Route Info Box (Hidden until calculated) -->
-    <div id="route-info" class="position-absolute shadow-lg rounded-4 p-3 text-center" 
-         style="bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; z-index: 1000; background: white; display: none;">
-        
-        <h6 class="fw-bold text-primary mb-2">🚗 Route Details</h6>
-        <div class="d-flex justify-content-around mb-3">
-            <div id="distance-text" class="small fw-bold text-dark"></div>
-            <div id="time-text" class="small fw-bold text-dark"></div>
+
+    <!-- Bottom Route Info Card -->
+    <div class="route-info-card" id="route-info">
+        <div class="d-flex gap-2 mb-3" id="route-stats">
+            <div class="stat-box">
+                <div class="label">Distance</div>
+                <div class="value" id="dist-val">—</div>
+            </div>
+            <div style="width:1px;background:#e2e8f0"></div>
+            <div class="stat-box">
+                <div class="label">Drive Time</div>
+                <div class="value" id="time-val">—</div>
+            </div>
+            <div style="width:1px;background:#e2e8f0" id="traffic-div" style="display:none"></div>
+            <div class="stat-box" id="traffic-box" style="display:none">
+                <div class="label">🚦 With Traffic</div>
+                <div class="value text-danger" id="traffic-val">—</div>
+            </div>
         </div>
-        
-        <div class="d-flex gap-2">
-            <button class="btn btn-light rounded-pill flex-fill fw-bold shadow-sm border" onclick="recenterDestination()">
+
+        <div class="d-flex gap-2 mb-2">
+            <button class="btn btn-light rounded-pill flex-fill fw-bold shadow-sm border"
+                    onclick="useBelagaviStart()" style="font-size:0.82rem">
+                🏙️ Belagavi Start
+            </button>
+            <button class="btn btn-light rounded-pill flex-fill fw-bold shadow-sm border"
+                    onclick="recenterDest()" style="font-size:0.82rem">
                 🎯 Re-center
             </button>
-            <button class="btn btn-outline-primary rounded-pill flex-fill fw-bold shadow-sm border" onclick="startFromBelagavi()">
-                📍 Belagavi Start
-            </button>
         </div>
-        <div class="mt-2">
-            <a href="https://www.google.com/maps/dir/?api=1&destination={{ place.lat }},{{ place.lon }}" 
-               target="_blank" class="btn btn-success w-100 rounded-pill fw-bold shadow-sm">
-               🚗 Live Voice Nav
-            </a>
-        </div>
+        <a href="https://www.google.com/maps/dir/?api=1&destination={{ place.lat }},{{ place.lon }}"
+           target="_blank"
+           class="btn btn-success w-100 rounded-pill fw-bold shadow-sm"
+           style="font-size:0.85rem">
+            🗺️ Open Google Maps App
+        </a>
     </div>
 </div>
 
 <script>
-    const lat = {{ place.lat|default("null") }};
-    const lon = {{ place.lon|default("null") }};
-    
-    // Belagavi CBT (Central Bus Stand) as fallback starting point
-    const belagaviCenterLat = 15.8626;
-    const belagaviCenterLon = 74.5177;
-    
-    let map;
-    let routingControl;
-    let userMarker;
-    
-    if (lat !== null && lon !== null) {
-        map = L.map('place-map', { zoomControl: false }).setView([lat, lon], 13);
-        L.control.zoom({ position: 'bottomright' }).addTo(map);
-    
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-    
-        // Destination marker
-        L.marker([lat, lon]).addTo(map).bindPopup("<b>{{ place.name }}</b><br>Destination").openPopup();
+const DEST_LAT = {{ place.lat | default("null") }};
+const DEST_LON = {{ place.lon | default("null") }};
+const PLACE_NAME = {{ place.name | tojson }};
+const BELAGAVI_LAT = 15.8626;
+const BELAGAVI_LON = 74.5177;
+
+let map, userMarker, routePolyline, destMarker;
+
+// ── Polyline decoder (Google encoded polyline format) ──────────────────
+function decodePolyline(encoded) {
+    const pts = [];
+    let idx = 0, lat = 0, lng = 0;
+    while (idx < encoded.length) {
+        let b, shift = 0, result = 0;
+        do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+        lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+        shift = 0; result = 0;
+        do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+        lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+        pts.push({ lat: lat / 1e5, lng: lng / 1e5 });
     }
+    return pts;
+}
 
-    function updateRouteUI(message, isError = false) {
-        const routeInfo = document.getElementById("route-info");
-        const distanceText = document.getElementById("distance-text");
-        const timeText = document.getElementById("time-text");
-        
-        routeInfo.style.display = "block";
-        timeText.innerHTML = "";
-        
-        if (isError) {
-            distanceText.innerHTML = `<span class="text-danger">⚠️ ${message}</span>`;
-        } else {
-            distanceText.innerHTML = `<span class="text-secondary">⏳ ${message}</span>`;
-        }
-    }
-    
-    let fallbackLine = null;
-    let routingTimeout = null;
+// ── Map init — show only destination marker ─────────────────────────────
+function initNavigationMap() {
+    if (!window.google || DEST_LAT === null) return;
 
-    function createRoute(userLat, userLng) {
-        if (!map) return;
-        updateRouteUI("Calculating route...");
-
-        if (routingControl) map.removeControl(routingControl);
-        if (fallbackLine) { map.removeLayer(fallbackLine); fallbackLine = null; }
-
-        routingControl = L.Routing.control({
-            waypoints: [
-                L.latLng(userLat, userLng),
-                L.latLng(lat, lon)
-            ],
-            lineOptions: {
-                styles: [
-                    { color: 'white', opacity: 0.9, weight: 9 },
-                    { color: '#0d6efd', opacity: 1, weight: 5 }
-                ]
-            },
-            routeWhileDragging: false,
-            show: false,
-            addWaypoints: false,
-            draggableWaypoints: false,
-            fitSelectedRoutes: true,
-            router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' })
-        }).addTo(map);
-
-        // Safety fallback if OSRM server is overloaded
-        clearTimeout(routingTimeout);
-        routingTimeout = setTimeout(() => {
-            updateRouteUI("Server busy. Showing direct path.", true);
-            map.removeControl(routingControl);
-            fallbackLine = L.polyline([ [userLat, userLng], [lat, lon] ], {
-                color: '#0d6efd',
-                weight: 5,
-                dashArray: '10, 10'
-            }).addTo(map);
-            map.fitBounds(fallbackLine.getBounds(), { padding: [50, 50] });
-            
-            let distance = getDistance(userLat, userLng, lat, lon).toFixed(1);
-            document.getElementById("route-info").style.display = "block";
-            document.getElementById("distance-text").innerHTML = "📏 ~" + distance + " km (direct)";
-            document.getElementById("time-text").innerHTML = "⏱️ Unknown";
-        }, 5000);
-
-        routingControl.on('routesfound', function(e) {
-            clearTimeout(routingTimeout);
-            let distance = (e.routes[0].summary.totalDistance / 1000).toFixed(2);
-            let time = (e.routes[0].summary.totalTime / 60).toFixed(1);
-
-            document.getElementById("route-info").style.display = "block";
-            document.getElementById("distance-text").innerHTML = "📏 " + distance + " km";
-            document.getElementById("time-text").innerHTML = "⏱️ " + time + " mins";
-            
-            let warningDiv = document.getElementById("glitch-warning");
-            if (!warningDiv) {
-                warningDiv = document.createElement("div");
-                warningDiv.id = "glitch-warning";
-                warningDiv.className = "text-danger small fw-bold mb-2 bg-light rounded p-1 border border-danger";
-                const routeInfo = document.getElementById("route-info");
-                // routeInfo.children[1] is the d-flex div holding distance and time
-                routeInfo.insertBefore(warningDiv, routeInfo.children[1]);
-            }
-            
-            if (parseFloat(distance) > 50) {
-                warningDiv.innerHTML = "⚠️ Long route detected. If this is a GPS error, click 'Belagavi Start' below.";
-                warningDiv.style.display = "block";
-            } else {
-                warningDiv.style.display = "none";
-            }
-        });
-
-        routingControl.on('routingerror', function(e) {
-            clearTimeout(routingTimeout);
-            updateRouteUI("Routing error. Showing direct path.", true);
-            map.removeControl(routingControl);
-            fallbackLine = L.polyline([ [userLat, userLng], [lat, lon] ], {
-                color: '#0d6efd',
-                weight: 5,
-                dashArray: '10, 10'
-            }).addTo(map);
-            map.fitBounds(fallbackLine.getBounds(), { padding: [50, 50] });
-            
-            let distance = getDistance(userLat, userLng, lat, lon).toFixed(1);
-            document.getElementById("route-info").style.display = "block";
-            document.getElementById("distance-text").innerHTML = "📏 ~" + distance + " km (direct)";
-            document.getElementById("time-text").innerHTML = "⏱️ Unknown";
-        });
-    }
-
-    function setUserMarker(uLat, uLng) {
-        if (!userMarker) {
-            // Create a DRAGGABLE marker
-            userMarker = L.marker([uLat, uLng], {draggable: true}).addTo(map)
-                .bindPopup("<b>You are here</b><br><i>Drag me to change starting point!</i>").openPopup();
-            
-            // Listen for when the user finishes dragging the pin
-            userMarker.on('dragend', function(event) {
-                const marker = event.target;
-                const position = marker.getLatLng();
-                createRoute(position.lat, position.lng);
-            });
-        } else {
-            userMarker.setLatLng([uLat, uLng]);
-            userMarker.openPopup();
-        }
-        createRoute(uLat, uLng);
-    }
-
-    // Rough distance calculation in KM
-    function getDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371; 
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                  Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-    }
-
-    function startFromBelagavi() {
-        setUserMarker(belagaviCenterLat, belagaviCenterLon);
-        updateRouteUI("Starting from Belagavi CBT.");
-    }
-
-    function locateUser() {
-        if (!map) return;
-        updateRouteUI("Getting location...");
-        
-        // Always place a fallback marker at Belagavi CBT first
-        setUserMarker(belagaviCenterLat, belagaviCenterLon);
-        
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function(pos) {
-                const userLat = pos.coords.latitude;
-                const userLng = pos.coords.longitude;
-                
-                let distToBelagavi = getDistance(userLat, userLng, belagaviCenterLat, belagaviCenterLon);
-                if (distToBelagavi > 100) {
-                    alert("You are too far from Belagavi! Starting route from Belagavi Bus Stand instead.");
-                    setUserMarker(belagaviCenterLat, belagaviCenterLon);
-                    updateRouteUI("Starting from Belagavi CBT.");
-                } else {
-                    setUserMarker(userLat, userLng);
-                    updateRouteUI("Location found!");
-                }
-                
-            }, function() {
-                updateRouteUI("Permission denied. Falling back to Belagavi Center.", true);
-            });
-        } else {
-            updateRouteUI("Geolocation not supported. Falling back to Belagavi Center.", true);
-        }
-    }
-    
-    function recenterDestination() {
-        if (map && lat !== null && lon !== null) {
-            map.setView([lat, lon], 13);
-        }
-    }
-
-    // Automatically trigger location fetch on page load
-    window.addEventListener('load', () => {
-        if (lat !== null && lon !== null) {
-            locateUser();
-        }
+    map = new google.maps.Map(document.getElementById('place-map'), {
+        center: { lat: DEST_LAT, lng: DEST_LON },
+        zoom: 14,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        gestureHandling: 'greedy',
+        styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
     });
+
+    destMarker = new google.maps.Marker({
+        position: { lat: DEST_LAT, lng: DEST_LON },
+        map: map,
+        title: PLACE_NAME,
+        animation: google.maps.Animation.DROP
+    });
+
+    setStatus('📍 Exact location of ' + PLACE_NAME);
+    loadWeather();
+}
+
+function setStatus(msg) {
+    const el = document.getElementById('nav-status');
+    if (el) el.textContent = msg;
+}
+
+// ── Weather (Open-Meteo, free) ──────────────────────────────────────────
+function loadWeather() {
+    if (!DEST_LAT) return;
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${DEST_LAT}&longitude=${DEST_LON}&current_weather=true`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.current_weather) return;
+            const { temperature: temp, weathercode: code } = data.current_weather;
+            const icons = { 0:'☀️', 1:'🌤️', 2:'⛅', 3:'☁️', 45:'🌫️', 48:'🌫️', 51:'🌦️', 61:'🌧️', 71:'❄️', 80:'🌦️', 95:'⛈️' };
+            const descs = { 0:'Clear', 1:'Mostly Clear', 2:'Partly Cloudy', 3:'Overcast', 45:'Foggy', 48:'Foggy', 51:'Drizzle', 61:'Rain', 71:'Snow', 80:'Showers', 95:'Thunderstorm' };
+            const icon = icons[code] || (code >= 51 && code <= 67 ? '🌧️' : code >= 80 ? '🌦️' : '☀️');
+            const desc = descs[code] || (code >= 51 ? 'Rainy' : 'Clear');
+
+            let tip = '✅ Great weather!', tipColor = '#16a34a';
+            if (temp > 37) { tip = '🔥 Very hot! Stay hydrated'; tipColor = '#dc2626'; }
+            else if (temp > 32) { tip = '🌡️ Hot — carry water'; tipColor = '#d97706'; }
+            else if (code >= 51 && code <= 95) { tip = '☔ Carry umbrella'; tipColor = '#2563eb'; }
+
+            document.getElementById('w-icon').textContent = icon;
+            document.getElementById('w-temp').textContent = `${temp}°C`;
+            document.getElementById('w-desc').textContent = desc;
+            const tipEl = document.getElementById('w-tip');
+            tipEl.textContent = tip;
+            tipEl.style.background = tipColor + '20';
+            tipEl.style.color = tipColor;
+            tipEl.style.border = `1px solid ${tipColor}40`;
+            document.getElementById('weather-strip').style.display = 'flex';
+        })
+        .catch(() => {});
+}
+
+// ── Find Route ─────────────────────────────────────────────────────────
+function findRoute() {
+    if (!map) return;
+    const btn = document.getElementById('find-route-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Locating...';
+    setStatus('Getting your location...');
+
+    if (!navigator.geolocation) {
+        calcRoute(BELAGAVI_LAT, BELAGAVI_LON, true);
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            const { latitude: lat, longitude: lng } = pos.coords;
+            // Sanity check — if outside India, use Belagavi
+            if (lat < 5 || lat > 37 || lng < 65 || lng > 98) {
+                calcRoute(BELAGAVI_LAT, BELAGAVI_LON, true);
+            } else {
+                calcRoute(lat, lng, false);
+            }
+        },
+        () => calcRoute(BELAGAVI_LAT, BELAGAVI_LON, true),
+        { timeout: 8000, enableHighAccuracy: true }
+    );
+}
+
+async function calcRoute(userLat, userLng, isFallback) {
+    setStatus(isFallback ? 'Using Belagavi CBT as start...' : 'Calculating route...');
+
+    // Place or move user marker
+    const userPos = { lat: userLat, lng: userLng };
+    if (userMarker) {
+        userMarker.setPosition(userPos);
+    } else {
+        userMarker = new google.maps.Marker({
+            position: userPos,
+            map: map,
+            title: isFallback ? 'Belagavi CBT (Start)' : 'Your Location',
+            draggable: true,
+            animation: google.maps.Animation.DROP,
+            icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 10,
+                fillColor: '#2563eb',
+                fillOpacity: 1,
+                strokeColor: '#ffffff',
+                strokeWeight: 3
+            }
+        });
+        userMarker.addListener('dragend', () => {
+            const p = userMarker.getPosition();
+            calcRoute(p.lat(), p.lng(), false);
+        });
+    }
+
+    const btn = document.getElementById('find-route-btn');
+
+    try {
+        // Call server-side proxy (keeps Directions API key hidden)
+        const res = await fetch(`/api/directions?origin=${userLat},${userLng}&destination=${DEST_LAT},${DEST_LON}`);
+        const data = await res.json();
+
+        if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+            const route = data.routes[0];
+            const leg = route.legs[0];
+
+            // Clear previous route polyline
+            if (routePolyline) routePolyline.setMap(null);
+
+            // Decode and draw actual road route
+            const path = decodePolyline(route.overview_polyline.points);
+            routePolyline = new google.maps.Polyline({
+                path,
+                map,
+                strokeColor: '#2563eb',
+                strokeWeight: 5,
+                strokeOpacity: 0.9,
+                zIndex: 2
+            });
+
+            // Fit bounds to show full route
+            const bounds = new google.maps.LatLngBounds();
+            bounds.extend(userPos);
+            bounds.extend({ lat: DEST_LAT, lng: DEST_LON });
+            map.fitBounds(bounds, { top: 130, bottom: 220, left: 20, right: 20 });
+
+            // Update stats
+            document.getElementById('dist-val').textContent = leg.distance.text;
+            document.getElementById('time-val').textContent = leg.duration.text;
+
+            // Traffic info
+            if (leg.duration_in_traffic && leg.duration_in_traffic.value > leg.duration.value + 120) {
+                document.getElementById('traffic-val').textContent = leg.duration_in_traffic.text;
+                document.getElementById('traffic-box').style.display = 'block';
+                document.getElementById('traffic-div').style.display = 'block';
+            } else {
+                document.getElementById('traffic-box').style.display = 'none';
+                document.getElementById('traffic-div').style.display = 'none';
+            }
+
+            document.getElementById('route-info').style.display = 'block';
+            setStatus(isFallback ? '🚗 Route from Belagavi CBT' : '🚗 Route calculated from your location');
+        } else {
+            throw new Error(data.error_message || data.status || 'No route found');
+        }
+    } catch (err) {
+        console.error('Route error:', err);
+        setStatus('⚠️ Routing failed — try "Open Google Maps App"');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-route me-1"></i> Find Route';
+}
+
+function useBelagaviStart() {
+    calcRoute(BELAGAVI_LAT, BELAGAVI_LON, true);
+}
+
+function recenterDest() {
+    if (map) { map.setCenter({ lat: DEST_LAT, lng: DEST_LON }); map.setZoom(14); }
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+    if (window.googleMapsLoaded) initNavigationMap();
+    else window.onGoogleMapsReady = initNavigationMap;
+});
 </script>
 {% endblock %}

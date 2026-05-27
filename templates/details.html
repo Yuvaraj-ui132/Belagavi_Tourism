@@ -72,7 +72,7 @@
                                 </div>
                             </div>
 
-                            <!-- How to Reach -->
+                            <!-- How to Reach — Rich Transport Card -->
                             <div class="accordion-item border rounded-3 mb-2 shadow-sm">
                                 <h2 class="accordion-header">
                                     <button class="accordion-button collapsed fw-bold rounded-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapseReach">
@@ -80,11 +80,80 @@
                                     </button>
                                 </h2>
                                 <div id="collapseReach" class="accordion-collapse collapse" data-bs-parent="#detailsAccordion">
-                                    <div class="accordion-body text-muted small" style="line-height: 1.6; white-space: pre-line;">
-                                        {{ place.how_to_reach|default('Routing details not available yet.') }}
+                                    <div class="accordion-body p-0">
+                                        {% if transport %}
+                                        <!-- Distance Badge -->
+                                        <div class="px-3 pt-3 pb-1">
+                                            <span class="badge rounded-pill px-3 py-2 fw-bold mb-3 d-inline-block"
+                                                  style="background:#eff6ff;color:#1d4ed8;font-size:0.82rem">
+                                                📍 {{ transport.distance_from_city }}
+                                            </span>
+                                        </div>
+
+                                        <!-- Bus Routes -->
+                                        {% if transport.bus %}
+                                        <div class="px-3 pb-2">
+                                            <div class="fw-bold small text-dark mb-2">
+                                                <i class="fa-solid fa-bus text-primary me-2"></i>Bus Routes
+                                            </div>
+                                            {% for b in transport.bus %}
+                                            <div class="card border-0 rounded-3 mb-2 p-3" style="background:#f8fafc">
+                                                <div class="fw-bold small text-dark mb-2">{{ b.route }}</div>
+                                                <div class="d-flex gap-3 flex-wrap">
+                                                    <span class="badge bg-light text-dark border small">
+                                                        🕐 {{ b.frequency }}
+                                                    </span>
+                                                    <span class="badge bg-light text-dark border small">
+                                                        ⏱️ {{ b.duration }}
+                                                    </span>
+                                                    <span class="badge bg-success bg-opacity-10 text-success border border-success small">
+                                                        💰 {{ b.fare }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+
+                                        <!-- Train (if available) -->
+                                        {% if transport.train %}
+                                        <div class="px-3 pb-2">
+                                            <div class="fw-bold small text-dark mb-1">
+                                                <i class="fa-solid fa-train text-warning me-2"></i>By Train
+                                            </div>
+                                            <div class="small text-muted ps-3">{{ transport.train }}</div>
+                                        </div>
+                                        {% endif %}
+
+                                        <!-- Auto / Taxi -->
+                                        {% if transport.auto_taxi %}
+                                        <div class="px-3 pb-2">
+                                            <div class="fw-bold small text-dark mb-1">
+                                                <i class="fa-solid fa-taxi text-warning me-2"></i>Auto / Taxi
+                                            </div>
+                                            <div class="small text-muted ps-3">{{ transport.auto_taxi }}</div>
+                                        </div>
+                                        {% endif %}
+
+                                        <!-- Drive -->
+                                        {% if transport.drive %}
+                                        <div class="px-3 pb-3">
+                                            <div class="fw-bold small text-dark mb-1">
+                                                <i class="fa-solid fa-car text-primary me-2"></i>By Car
+                                            </div>
+                                            <div class="small text-muted ps-3">{{ transport.drive }}</div>
+                                        </div>
+                                        {% endif %}
+
+                                        {% else %}
+                                        <div class="p-3 small text-muted" style="line-height:1.6;white-space:pre-line">
+                                            {{ place.how_to_reach | default('Routing details not available yet.') }}
+                                        </div>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
+
 
                             <!-- Local Tips -->
                             <div class="accordion-item border rounded-3 shadow-sm">
@@ -211,6 +280,53 @@
         </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════
+         REVIEWS & RATINGS SECTION (Firestore-backed)
+    ════════════════════════════════════════════════════════ -->
+    <div class="mt-5 mb-4" id="reviews-section">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h4 class="fw-bold text-dark mb-0">⭐ Reviews &amp; Ratings</h4>
+            <div id="avg-rating-display">
+                <span class="text-muted small">Loading ratings...</span>
+            </div>
+        </div>
+
+        <!-- Write a Review -->
+        <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+            <h6 class="fw-bold text-dark mb-3">Write a Review</h6>
+
+            <!-- Star Rating Input -->
+            <div class="mb-3 d-flex gap-1" id="star-input">
+                {% for i in range(1, 6) %}
+                <i class="fa-regular fa-star review-star fs-4 text-warning"
+                   data-value="{{ i }}"
+                   style="cursor:pointer;transition:transform 0.15s"
+                   onmouseenter="this.style.transform='scale(1.2)'"
+                   onmouseleave="this.style.transform='scale(1)'"></i>
+                {% endfor %}
+            </div>
+
+            <textarea id="review-text" class="form-control border-light bg-light rounded-3 mb-3"
+                      rows="3" placeholder="Share your experience at {{ place.name }}..."
+                      style="resize:none;font-size:0.92rem"></textarea>
+
+            <div id="review-feedback" class="mb-2" style="display:none"></div>
+
+            <button id="submit-review-btn" onclick="submitReview()"
+                    class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">
+                <i class="fa-solid fa-paper-plane me-2"></i>Post Review
+            </button>
+        </div>
+
+        <!-- Reviews List -->
+        <div id="reviews-list">
+            <div class="text-center py-4">
+                <span class="spinner-border spinner-border-sm text-primary me-2"></span>
+                <small class="text-muted">Loading reviews...</small>
+            </div>
+        </div>
+    </div>
+
     <!-- AI Chatbot Floating UI -->
     <div id="ai-chat-widget" style="position: fixed; bottom: 30px; right: 30px; z-index: 1050;">
         <!-- Chat Window -->
@@ -249,7 +365,23 @@
             name: {{ place.name|tojson }},
             history: {{ place.detailed_history|default(place.history)|default("I don't have historical details for this yet.")|tojson }},
             tips: {{ place.local_tips|default("No specific tips right now.")|tojson }},
-            reach: {{ place.how_to_reach|default("Check the Open Map button to see the route.")|tojson }},
+            reach: (function() {
+                {% if transport %}
+                let r = "📍 Distance: {{ transport.distance_from_city }}\n\n";
+                {% if transport.bus %}
+                r += "🚌 Bus Routes:\n";
+                {% for b in transport.bus %}
+                r += "• {{ b.route }} — {{ b.frequency }}, {{ b.duration }}, {{ b.fare }}\n";
+                {% endfor %}
+                {% endif %}
+                {% if transport.train %}r += "\n🚆 Train: {{ transport.train }}\n";{% endif %}
+                {% if transport.auto_taxi %}r += "\n🚖 Auto/Taxi: {{ transport.auto_taxi }}\n";{% endif %}
+                {% if transport.drive %}r += "\n🚗 Drive: {{ transport.drive }}";{% endif %}
+                return r;
+                {% else %}
+                return {{ place.how_to_reach|default("Check the Open Map button to see the route.")|tojson }};
+                {% endif %}
+            })(),
             fee: {{ place.entry_fee|default("Not specified.")|tojson }},
             time: {{ place.best_time|default("Not specified.")|tojson }},
             duration: {{ place.visit_duration|default("Not specified.")|tojson }}
@@ -347,52 +479,69 @@
                         if(data.current_weather) {
                             const temp = data.current_weather.temperature;
                             const code = data.current_weather.weathercode;
-                            
-                            // Map WMO codes to Emojis and descriptions
-                            let icon = '☀️';
-                            let desc = 'Clear';
+                            let icon = '☀️'; let desc = 'Clear';
                             if (code >= 1 && code <= 3) { icon = '⛅'; desc = 'Partly Cloudy'; }
                             else if (code >= 45 && code <= 48) { icon = '🌫️'; desc = 'Foggy'; }
                             else if (code >= 51 && code <= 67) { icon = '🌧️'; desc = 'Rain'; }
                             else if (code >= 71 && code <= 77) { icon = '❄️'; desc = 'Snow'; }
                             else if (code >= 80 && code <= 82) { icon = '🌦️'; desc = 'Showers'; }
                             else if (code >= 95) { icon = '⛈️'; desc = 'Thunderstorm'; }
-                            
                             let suggestionHtml = "";
-                            
-                            // Smart Logic based on best time and weather
                             if (code >= 51 && code <= 95) {
-                                if (bestTimeStr.includes("monsoon") || bestTimeStr.includes("rain")) {
-                                    suggestionHtml = `<div class="badge bg-success mt-2 d-block p-2 text-wrap shadow-sm">🌧️ Great time to visit! Raining as expected.</div>`;
-                                } else {
-                                    suggestionHtml = `<div class="badge bg-warning text-dark mt-2 d-block p-2 text-wrap shadow-sm">⚠️ It's raining. Carry an umbrella!</div>`;
-                                }
+                                suggestionHtml = bestTimeStr.includes("monsoon") || bestTimeStr.includes("rain")
+                                    ? `<div class="badge bg-success mt-2 d-block p-2 text-wrap shadow-sm">🌧️ Great time to visit!</div>`
+                                    : `<div class="badge bg-warning text-dark mt-2 d-block p-2 text-wrap shadow-sm">⚠️ It's raining. Carry an umbrella!</div>`;
                             } else if (temp > 35) {
                                 suggestionHtml = `<div class="badge bg-danger mt-2 d-block p-2 text-wrap shadow-sm">🔥 Very hot today. Stay hydrated!</div>`;
                             } else {
-                                suggestionHtml = `<div class="badge bg-success mt-2 d-block p-2 text-wrap shadow-sm">✨ Perfect weather for a visit right now!</div>`;
+                                suggestionHtml = `<div class="badge bg-success mt-2 d-block p-2 text-wrap shadow-sm">✨ Perfect weather for a visit!</div>`;
                             }
-                            
                             weatherDiv.innerHTML = `
                                 <div class="d-flex justify-content-center align-items-center gap-2 mb-1">
-                                    <span style="font-size: 2rem;">${icon}</span>
+                                    <span style="font-size:2rem">${icon}</span>
                                     <div class="text-start">
                                         <h3 class="m-0 fw-bold">${temp}°C</h3>
-                                        <small class="text-muted fw-bold text-uppercase" style="font-size:0.7rem;">${desc}</small>
+                                        <small class="text-muted fw-bold text-uppercase" style="font-size:0.7rem">${desc}</small>
                                     </div>
-                                </div>
-                                ${suggestionHtml}
-                            `;
+                                </div>${suggestionHtml}`;
                         } else {
                             weatherDiv.innerHTML = `<small class="text-muted">Weather unavailable.</small>`;
                         }
-                    })
-                    .catch(err => {
+                    }).catch(() => {
                         weatherDiv.innerHTML = `<small class="text-muted">Weather unavailable.</small>`;
                     });
             } else {
                 document.getElementById("weather-widget").style.display = 'none';
             }
         });
+    </script>
+
+    <!-- reviews.js (Firestore reviews module) -->
+    <script src="{{ url_for('static', filename='reviews.js') }}"></script>
+
+    <!-- Firebase + Firestore init for this page -->
+    <script type="module">
+      import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+      import { getAuth } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+      import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+      const firebaseConfig = {
+        apiKey:            "{{ firebase_api_key }}",
+        authDomain:        "{{ firebase_auth_domain }}",
+        projectId:         "{{ firebase_project_id }}",
+        storageBucket:     "{{ firebase_storage_bucket }}",
+        messagingSenderId: "{{ firebase_messaging_sender_id }}",
+        appId:             "{{ firebase_app_id }}"
+      };
+
+      // Avoid duplicate app initialization
+      const fbApp = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+      const db = getFirestore(fbApp);
+      const auth = getAuth(fbApp);
+
+      // Boot the reviews module once Firebase is ready
+      if (typeof window.initReviews === 'function') {
+          window.initReviews(db, auth, {{ place.id }});
+      }
     </script>
 {% endblock %}

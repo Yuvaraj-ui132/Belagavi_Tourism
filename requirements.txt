@@ -13,3 +13,6 @@ typing_extensions==4.15.0
 Werkzeug==3.1.5
 gunicorn==21.2.0
 psycopg2-binary==2.9.9
+python-dotenv==1.2.2
+firebase-admin==6.5.0
+flask-wtf==1.2.1

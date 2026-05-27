@@ -8,6 +8,8 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    firebase_uid = db.Column(db.String(128), unique=True, nullable=True)
     wishlist = db.relationship('Wishlist', backref='user', lazy=True)
     expenses = db.relationship('Expense', backref='user', lazy=True, cascade="all, delete-orphan")
 
@@ -31,6 +33,7 @@ class Place(db.Model):
     how_to_reach = db.Column(db.Text)
     local_tips = db.Column(db.Text)
     detailed_history = db.Column(db.Text)
+    transport_json = db.Column(db.Text)  # JSON string of structured transport data
 
 class Wishlist(db.Model):
     id = db.Column(db.Integer, primary_key=True)
