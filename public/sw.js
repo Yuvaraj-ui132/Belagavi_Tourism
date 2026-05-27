@@ -1,7 +1,6 @@
 const CACHE_NAME = 'belagavi-cache-v7';
 const urlsToCache = [
   '/',
-  '/planner',
   '/static/style.css',
   '/static/main.js',
   '/static/reviews.js',

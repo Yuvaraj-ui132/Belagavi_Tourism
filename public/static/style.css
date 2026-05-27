@@ -40,8 +40,9 @@ body {
     justify-content: space-around;
     align-items: center;
     border-top: 1px solid rgba(0,0,0,0.05);
-    z-index: 1000;
+    z-index: 2000;
     box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+    pointer-events: auto;
 }
 
 .bottom-nav button {
