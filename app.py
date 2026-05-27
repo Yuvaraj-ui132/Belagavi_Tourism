@@ -371,8 +371,65 @@ def firebase_auth():
         user.firebase_uid = uid
         db.session.commit()
 
-    login_user(user)
+    login_user(user, remember=True)
     return jsonify({'status': 'ok', 'redirect': url_for('home')})
+
+
+# ---------------------------------------------------------------------------
+# Firebase Auth — FORM-POST version (reliable session creation)
+# Called from the hidden form in login.html / register.html
+# Using a real browser form POST guarantees the Set-Cookie header is
+# processed before any navigation, eliminating the race condition.
+# ---------------------------------------------------------------------------
+@app.route('/auth/firebase/form', methods=['POST'])
+def firebase_auth_form():
+    """Verify Firebase token from a form POST, create Flask session, redirect."""
+    if not get_firebase_app():
+        flash('Firebase authentication is not configured on this server.')
+        return redirect(url_for('login'))
+
+    from firebase_admin import auth as firebase_auth_module
+
+    id_token = request.form.get('firebase_token', '').strip()
+    if not id_token:
+        flash('Authentication token missing. Please try again.')
+        return redirect(url_for('login'))
+
+    try:
+        decoded = firebase_auth_module.verify_id_token(id_token)
+    except Exception as e:
+        current_app.logger.error('Firebase form auth token error: %s', e)
+        flash('Google Sign-In failed: could not verify token. Please try again.')
+        return redirect(url_for('login'))
+
+    uid          = decoded['uid']
+    email        = decoded.get('email', '')
+    display_name = decoded.get('name', email.split('@')[0] if email else f'user_{uid[:8]}')
+
+    # Find or create user (same logic as /auth/firebase JSON route)
+    user = User.query.filter_by(firebase_uid=uid).first()
+    if not user and email:
+        user = User.query.filter_by(email=email).first()
+    if not user:
+        user = User(
+            username=display_name,
+            email=email or f'{uid}@firebase.local',
+            password=generate_password_hash(os.urandom(24).hex(), method='scrypt'),
+            firebase_uid=uid,
+            is_admin=False
+        )
+        db.session.add(user)
+        db.session.commit()
+    elif not user.firebase_uid:
+        user.firebase_uid = uid
+        db.session.commit()
+
+    # remember=True → permanent cookie (survives browser close)
+    login_user(user, remember=True)
+
+    # Server-side 302 redirect — browser follows with session cookie already set
+    next_page = request.args.get('next') or url_for('home')
+    return redirect(next_page)
 
 
 @app.route('/sw.js')

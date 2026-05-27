@@ -57,6 +57,15 @@
     </div>
 </div>
 
+<!-- Hidden form for reliable session creation (same pattern as login.html) -->
+<form method="POST"
+      action="{{ url_for('firebase_auth_form') }}"
+      id="firebase-session-form"
+      style="display:none">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="firebase_token" id="firebase-token-field">
+</form>
+
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
   import {
@@ -100,25 +109,19 @@
           });
   }
 
+  // ── Send token to Flask via hidden form POST (reliable session creation) ──
   async function sendTokenToServer(idToken) {
-      try {
-          const res = await fetch('/auth/firebase', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ idToken })
-          });
-          const data = await res.json();
-          if (data.redirect) {
-              window.location.href = data.redirect;
-          } else {
-              showError(data.error || 'Server error. Please try again.');
-              setLoading(false);
-          }
-      } catch (e) {
-          console.error('[Firebase] sendTokenToServer error:', e);
-          showError('Network error. Please check your connection.');
+      console.log('[Firebase] Submitting token to Flask via form POST...');
+      const field = document.getElementById('firebase-token-field');
+      const form  = document.getElementById('firebase-session-form');
+      if (!field || !form) {
+          console.error('[Firebase] Hidden form not found in DOM!');
+          showError('Internal error. Please refresh and try again.');
           setLoading(false);
+          return;
       }
+      field.value = idToken;
+      form.submit();  // Native browser POST — Flask redirects after login_user()
   }
 
   function showError(msg) {
