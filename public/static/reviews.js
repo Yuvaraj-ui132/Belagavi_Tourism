@@ -90,18 +90,26 @@
         if (!container) return;
         try {
             const { collection, getDocs, query, orderBy, limit } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-            const q = query(
-                collection(_db, 'reviews', _placeId, 'comments'),
-                orderBy('timestamp', 'desc'),
-                limit(20)
-            );
-            const snap = await getDocs(q);
+            let snap;
+            try {
+                const q = query(
+                    collection(_db, 'reviews', _placeId, 'comments'),
+                    orderBy('timestamp', 'desc'),
+                    limit(20)
+                );
+                snap = await getDocs(q);
+            } catch (orderErr) {
+                console.warn('Ordered reviews query failed, trying basic collection fetch:', orderErr);
+                snap = await getDocs(collection(_db, 'reviews', _placeId, 'comments'));
+            }
             if (snap.empty) {
                 container.innerHTML = `<p class="text-muted text-center py-3 small">No reviews yet. Be the first!</p>`;
                 return;
             }
             container.innerHTML = '';
-            snap.docs.forEach(doc => _renderReview(doc.data()));
+            const docs = snap.docs.map(d => d.data());
+            docs.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+            docs.forEach(data => _renderReview(data));
         } catch (e) {
             console.warn('Could not load reviews:', e);
             container.innerHTML = `<p class="text-muted small text-center">Reviews unavailable.</p>`;
@@ -158,20 +166,25 @@
         try {
             const { collection, addDoc, setDoc, doc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
 
-            // Save review
+            // Save review to reviews/{placeId}/comments
             await addDoc(collection(_db, 'reviews', _placeId, 'comments'), {
                 userId: user.uid,
                 username: user.displayName || user.email?.split('@')[0] || 'Traveller',
-                text,
+                text: text,
+                comment: text,
                 rating: _selectedRating,
                 timestamp: serverTimestamp()
             });
 
-            // Save/update this user's rating vote
-            await setDoc(doc(_db, 'ratings', _placeId, 'votes', user.uid), {
-                rating: _selectedRating,
-                timestamp: serverTimestamp()
-            });
+            // Save/update user's rating vote safely (non-blocking)
+            try {
+                await setDoc(doc(_db, 'ratings', _placeId, 'votes', user.uid), {
+                    rating: _selectedRating,
+                    timestamp: serverTimestamp()
+                });
+            } catch (ratingErr) {
+                console.warn('Rating vote sync warning:', ratingErr);
+            }
 
             _showReviewMsg('success', '✅ Review posted! Thank you.');
             document.getElementById('review-text').value = '';
@@ -182,8 +195,8 @@
             await _loadReviews();
             await _loadAverageRating();
         } catch (e) {
-            _showReviewMsg('error', 'Failed to submit. Please try again.');
-            console.error(e);
+            _showReviewMsg('error', 'Failed to submit review. Please try again.');
+            console.error('Review submit error:', e);
         } finally {
             if (btn) { btn.disabled = false; btn.textContent = 'Post Review'; }
         }

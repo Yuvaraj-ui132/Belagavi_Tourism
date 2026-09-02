@@ -6,3 +6,13 @@ instance/
 .DS_Store
 belagavi.db
 serviceAccountKey.json
+
+# Android Secrets & IDE/Build exclusions
+**/build/
+.gradle/
+.idea/
+*.iml
+local.properties
+*.jks
+*.keystore
+google-services.json

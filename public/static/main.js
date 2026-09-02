@@ -354,8 +354,7 @@ async function loadExpensesFirestore() {
     const uid = window.fbAuth.currentUser.uid;
     const q = window.fbFirestoreMethods.query(
         window.fbFirestoreMethods.collection(window.fbDb, "expenses"),
-        window.fbFirestoreMethods.where("user_id", "==", uid),
-        window.fbFirestoreMethods.orderBy("created_at", "desc")
+        window.fbFirestoreMethods.where("user_id", "==", uid)
     );
 
     try {
@@ -365,12 +364,19 @@ async function loadExpensesFirestore() {
             const data = doc.data();
             expenses.push({
                 id: doc.id,
-                location: data.location,
-                name: data.name,
+                location: data.location || data.placeName || 'Belagavi',
+                name: data.name || data.title || 'Expense',
                 amount: data.amount,
                 category: data.category,
-                date: data.date
+                date: data.date,
+                created_at: data.created_at
             });
+        });
+        // Sort client side (newest first) to avoid composite index requirement
+        expenses.sort((a, b) => {
+            const tA = a.created_at?.seconds || 0;
+            const tB = b.created_at?.seconds || 0;
+            return tB - tA;
         });
         updateExpenseUI();
     } catch (err) {
@@ -416,7 +422,9 @@ async function addExpenseFirestore() {
             {
                 user_id: uid,
                 location: location,
+                placeName: location,
                 name: name,
+                title: name,
                 amount: amount,
                 category: category,
                 date: payload.date,
@@ -736,15 +744,15 @@ async function loadWishlistFirestore() {
 }
 
 // Bump when place coordinates or core metadata change (forces one-time Firestore overwrite).
-window.PLACES_SYNC_VERSION = 'coords-2026-05-27-v5';
+window.PLACES_SYNC_VERSION = 'coords-2026-05-27-v6';
 
-/** Overwrite places/{id} docs from window.allPlacesData (IDs 1–29). Reviews/ratings/wishlists are separate collections. */
+/** Overwrite places/{id} docs from window.allPlacesData (IDs 1–31). Reviews/ratings/wishlists are separate collections. */
 async function syncAllPlacesToFirestore() {
     if (!window.fbDb || !window.allPlacesData?.length) return false;
     const { doc, setDoc } = window.fbFirestoreMethods;
     console.log(`[Firebase SPA] Syncing ${window.allPlacesData.length} places to Firestore (setDoc overwrite)...`);
     for (const place of window.allPlacesData) {
-        if (!place.id || place.id < 1 || place.id > 29) continue;
+        if (!place.id || place.id < 1 || place.id > 31) continue;
         const docRef = doc(window.fbDb, 'places', String(place.id));
         await setDoc(docRef, place);
     }
@@ -918,6 +926,7 @@ window.calculateSmartRoute = async function() {
 
                     const distanceKm = parseFloat(distanceText.replace(/[^\d.]/g, '')) || 0;
                     window.updateExpenseEstimates(distanceKm);
+                    window.updateDynamicReachSection(distanceKm);
                 } else {
                     window.useMathematicalRouteFallback("Google Maps Directions non-OK status: " + status);
                 }
@@ -946,6 +955,7 @@ window.calculateSmartRoute = async function() {
 
                 const distanceKm = parseFloat(distanceText.replace(/[^\d.]/g, '')) || 0;
                 window.updateExpenseEstimates(distanceKm);
+                window.updateDynamicReachSection(distanceKm);
                 return;
             }
         }
@@ -983,6 +993,7 @@ window.useMathematicalRouteFallback = function(reason) {
     if (routeNameEl) routeNameEl.textContent = "Direct Road Route (Estimated)";
 
     window.updateExpenseEstimates(approxRoadDist);
+    window.updateDynamicReachSection(approxRoadDist);
 };
 
 window.updateExpenseEstimates = function(distanceKm) {
@@ -993,6 +1004,62 @@ window.updateExpenseEstimates = function(distanceKm) {
     if (costBikeEl) costBikeEl.textContent = `₹${Math.round(distanceKm * 2.5)}`;
     if (costCarEl) costCarEl.textContent = `₹${Math.round(distanceKm * 7.0)}`;
     if (costBusEl) costBusEl.textContent = `₹${Math.round(distanceKm * 1.5)}`;
+};
+
+// Dynamic reach text: detects closest known city from user GPS and returns context-aware route advice
+window.getDynamicReachText = function(userLat, userLng, isFallback, placeName, approxDistKm) {
+    const knownCities = [
+        { name: 'Belagavi', lat: 15.8497, lng: 74.4977 },
+        { name: 'Bengaluru', lat: 12.9716, lng: 77.5946 },
+        { name: 'Hubli', lat: 15.3647, lng: 75.1240 },
+        { name: 'Pune', lat: 18.5204, lng: 73.8567 }
+    ];
+
+    let closestCity = 'Belagavi';
+    if (!isFallback && userLat && userLng) {
+        let minDist = Infinity;
+        for (const c of knownCities) {
+            const d = window.getHaversineDistance(userLat, userLng, c.lat, c.lng);
+            if (d < minDist) { minDist = d; closestCity = c.name; }
+        }
+    }
+
+    const dist = approxDistKm.toFixed(1);
+    const routes = {
+        'Belagavi':  `Departure from Belagavi. To reach ${placeName} (approx. ${dist} km away):\nTake a local bus from CBT, hire an auto-rickshaw, or self-drive via local routes.`,
+        'Bengaluru': `Departure from Bengaluru. To reach ${placeName} (approx. ${dist} km away):\nTake an overnight train (e.g., Rani Chennamma Express) or a KSRTC/private sleeper bus from Bengaluru to Belagavi, then proceed to the destination.`,
+        'Hubli':     `Departure from Hubli. To reach ${placeName} (approx. ${dist} km away):\nTake a KSRTC express bus or a passenger/express train from Hubli to Belagavi, then proceed to the destination.`,
+        'Pune':      `Departure from Pune. To reach ${placeName} (approx. ${dist} km away):\nTake an express train or NH48 KSRTC/private bus from Pune to Belagavi, then proceed to the destination.`
+    };
+    return routes[closestCity] || `Departure from your live location. To reach ${placeName} (approx. ${dist} km away):\nNavigate using state highway networks. Ensure vehicle suitability for local terrain.`;
+};
+
+// Dynamic travel mode suggestion based on distance
+window.getTravelModeSuggestion = function(distanceKm) {
+    if (distanceKm <= 50)  return '0–50 km range:\n🚲 Bike · 🛺 Auto · 🚌 Local Bus · 🚗 Self Drive';
+    if (distanceKm <= 250) return '50–250 km range:\n🚌 KSRTC/Private Bus · 🚗 Self Drive · 🏘️ Nearest Major Town Route';
+    return '250+ km range:\n🚆 Train recommended';
+};
+
+// Injects dynamic reach text into the How to Reach accordion section
+window.updateDynamicReachSection = function(distanceKm) {
+    const el = document.getElementById('dynamic-reach-text');
+    if (!el) return;
+    const reachText = window.getDynamicReachText(
+        window.userLat, window.userLng, window.isFallbackOrigin,
+        window.placeName, distanceKm
+    );
+    const modeText = window.getTravelModeSuggestion(distanceKm);
+    el.innerHTML = `
+        <div class="mb-3">
+            <div class="fw-bold small text-dark mb-1">📍 From Your Location</div>
+            <div class="small text-muted" style="white-space:pre-line;">${reachText}</div>
+        </div>
+        <div>
+            <div class="fw-bold small text-dark mb-1">🚦 Travel Mode Recommendation</div>
+            <div class="small text-muted" style="white-space:pre-line;">${modeText}</div>
+        </div>
+    `;
 };
 
 window.startNavigation = function() {
@@ -1345,7 +1412,11 @@ async function renderPlaceDetailsFirestore(placeId) {
                                     <div id="collapseReach" class="accordion-collapse collapse" data-bs-parent="#detailsAccordion">
                                         <div class="accordion-body p-3">
                                             ${transportHtml}
-                                            <div class="fw-bold text-dark small mb-1 mt-3">Local Travel Tips</div>
+                                            <!-- Dynamic reach section: populated by updateDynamicReachSection() after GPS resolves -->
+                                            <div id="dynamic-reach-text" class="p-2 rounded-3 border mb-3 bg-light small text-muted" style="white-space:pre-line;">
+                                                📍 Detecting your location for personalised route info...
+                                            </div>
+                                            <div class="fw-bold text-dark small mb-1 mt-1">Local Travel Tips</div>
                                             <p class="text-muted small m-0">${place.local_tips || 'Carry water and plan ahead.'}</p>
                                         </div>
                                     </div>
@@ -1604,18 +1675,29 @@ function initReactiveSPAAuth() {
             if (authContainer) authContainer.style.display = "none";
             if (appView) appView.style.display = "block";
             
-            // Default view to home if not hashed
-            if (!window.location.hash) {
-                show('home');
-            } else {
+            // Default view to home if not hashed or hash is unrecognised
+            const knownSections = ['home','explore','wishlist','expense','budget','profile','place-details'];
+            const rawHash = window.location.hash ? window.location.hash.substring(1).toLowerCase() : '';
+            const isKnownHash = rawHash && (knownSections.includes(rawHash) || rawHash.startsWith('place-'));
+            if (isKnownHash) {
                 handleHashRouting();
+            } else {
+                show('home');
             }
         } else {
             console.log("[Firebase SPA] User is logged out.");
             window.currentUser = null;
             if (appView) appView.style.display = "none";
             if (authContainer) authContainer.style.display = "block";
-            
+
+            // Clear the URL hash so a stale section (#explore, #place-5, etc.)
+            // from this session does not reopen on the next login.
+            if (history.replaceState) {
+                history.replaceState(null, '', window.location.pathname);
+            } else {
+                window.location.hash = '';
+            }
+
             // Show welcome landing screen by default
             switchAuthView('welcome');
         }

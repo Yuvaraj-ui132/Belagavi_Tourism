@@ -1,4 +1,4 @@
-const CACHE_NAME = 'belagavi-cache-v7';
+const CACHE_NAME = 'belagavi-cache-v8';
 const urlsToCache = [
   '/',
   '/static/style.css',

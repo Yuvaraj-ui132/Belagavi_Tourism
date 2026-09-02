@@ -761,7 +761,7 @@ window.allPlacesData = [
     "city": "Belagavi",
     "how_to_reach": "Located in Kanabargi, Belagavi. Accessible via local auto or cab.",
     "local_tips": "The temple is located near a hillock, offering a nice view and a cool breeze. Best visited in the late afternoon.",
-    "detailed_history": "Set into a scenic hill cave near Kanbargi, Siddheshwar Temple is dedicated to Lord Shiva. It offers a peaceful meditative environment and hosts local community festivals during holy Hindu calendar months.",
+    "detailed_history": "Set into a scenic hill cave near Kanbargi, Siddheshwar Temple is dedicated to Lord Shiva. It offers a peaceful meditative environment and hosts local community festivals during holy Hindu calendar months.\n\nSiddheshwar Temple is known among many visitors for the unusual peace it brings. Some places feel silent; this one feels understanding. For people carrying memories, longing, pain, or emotions difficult to express, the calm surroundings often turn reflection into quiet strength.",
     "transport": {
       "distance_from_city": "8 km from Belagavi CBT",
       "bus": [
@@ -975,5 +975,69 @@ window.allPlacesData = [
     },
     "folder_name": "yellur_fort",
     "description": "Yellur Fort, also known as Rajhansgad, is a stunning hilltop fortress offering a 360-degree panoramic overlook of the countryside."
+  },
+  {
+    "id": 30,
+    "name": "Shankarling Temple",
+    "category": "Temple",
+    "history": "Shankarling Math, a revered shrine of the Shankaracharya lineage, was established in Sankeshwar. The deity Shankarling is believed to have manifested here centuries ago, drawn by the sanctity of the Hiranyakeshi River banks.",
+    "architecture": "Built in traditional North‑Karnataka style with a sanctum surrounded by a pillared mandapa and a shikhara adorned with intricate stone carvings.",
+    "famous_features": "Peaceful riverfront setting, ancient stone inscription of the Shankaracharya, annual Mahashivratri fair.",
+    "lat": 16.253262,
+    "lon": 74.4785572,
+    "best_time": "Morning (8 AM‑11 AM)",
+    "entry_fee": "Free",
+    "visit_duration": "1 Hour",
+    "city": "Sankeshwar",
+    "how_to_reach": "Located on the banks of the Hiranyakeshi River in Sankeshwar. Reach via Belagavi CBT → Sankeshwar (NH48) – approx. 30 km.",
+    "local_tips": "Visit early to enjoy the river ambience; avoid monsoon when paths become slippery.",
+    "detailed_history": "The Shankarling Math was founded in the 12th century by the great Shankaracharya of the tradition, serving as a centre of Vedic learning and pilgrimage. The deity is said to have been installed by a wandering sage after he witnessed a divine vision at this spot.",
+    "transport": {
+      "distance_from_city": "30 km (from Belagavi CBT)",
+      "bus": [
+        {
+          "route": "Belagavi CBT -> Sankeshwar",
+          "frequency": "Every 30 mins",
+          "duration": "45 min",
+          "fare": "~Rs.20"
+        }
+      ],
+      "auto_taxi": "Auto from CBT: Rs.70-100. Taxi: Rs.400-500.",
+      "drive": "Take NH48 north to Sankeshwar, turn left at Hiranyakeshi bridge."
+    },
+    "folder_name": "shankarling_temple_sankeshwar",
+    "description": "Shankarling Temple is a historic shrine in Sankeshwar, revered for its river‑side sanctum and rich Shankaracharya heritage."
+  },
+  {
+    "id": 31,
+    "name": "Huliyamma Devi Temple",
+    "category": "Temple",
+    "history": "Huliyamma Devi Temple is a local goddess shrine situated in Hukkeri, Belagavi district. Devotees believe Huliyamma appeared here to protect the surrounding villages.",
+    "architecture": "Simple yet charming stone structure with a thatched roof, featuring a wooden sanctum and a surrounding courtyard used for festivals.",
+    "famous_features": "Annual Huliyamma Jatre, nearby sacred banyan tree, traditional folk music performances.",
+    "lat": 16.1876997,
+    "lon": 74.575084,
+    "best_time": "Evening (5 PM‑8 PM)",
+    "entry_fee": "Free",
+    "visit_duration": "1 Hour",
+    "city": "Hukkeri",
+    "how_to_reach": "Located on the main road of Hukkeri town. Reach via Belagavi CBT -> Hukkeri (NH48) – about 18 km.",
+    "local_tips": "Best visited during the evening festival; parking available near the temple entrance.",
+    "detailed_history": "The shrine dates back to the 17th century when local villagers erected a simple shrine after a reported miracle. Over generations it grew into a beloved community temple, hosting the annual Huliyamma fair attracting pilgrims from nearby villages.\n\nMany devotees believe Huliyamma Devi Temple is a place where emotions become quieter. The peaceful atmosphere of Hukkeri and the deep faith around the goddess often give visitors a strange sense of calm — especially to those carrying memories, unanswered feelings, or emotional weight in their hearts.",
+    "transport": {
+      "distance_from_city": "18 km (from Belagavi CBT)",
+      "bus": [
+        {
+          "route": "Belagavi CBT -> Hukkeri",
+          "frequency": "Every 20 mins",
+          "duration": "30 min",
+          "fare": "~Rs.15"
+        }
+      ],
+      "auto_taxi": "Auto from CBT: Rs.50-80. Taxi: Rs.250-300.",
+      "drive": "Take NH48 north to Hukkeri; the temple is visible from the main road."
+    },
+    "folder_name": "huliyamma_devi_temple",
+    "description": "Huliyamma Devi Temple is a cherished local shrine in Hukkeri, known for its vibrant festivals and community devotion."
   }
 ];
