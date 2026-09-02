@@ -194,6 +194,10 @@
             document.getElementById('reviews-list').innerHTML = '';
             await _loadReviews();
             await _loadAverageRating();
+
+            if (typeof window.refreshProfileStats === 'function') {
+                window.refreshProfileStats();
+            }
         } catch (e) {
             _showReviewMsg('error', 'Failed to submit review. Please try again.');
             console.error('Review submit error:', e);

@@ -411,34 +411,51 @@
 
                     <div class="mb-4">
                         <h6 class="fw-bold text-secondary small text-uppercase px-2 mb-2" style="letter-spacing: 1.2px;">Overview</h6>
-                        <div class="row g-3 mb-3">
-                            <div class="col-6">
-                                <div class="card border-0 shadow-sm p-3 text-center" style="border-radius: 20px; background: #eff6ff;">
-                                    <h4 class="fw-bold text-primary mb-1" id="stat-wishlist-count">0</h4>
-                                    <small class="text-primary fw-bold" style="font-size: 0.7rem; text-uppercase: uppercase;">Saved</small>
+                        <div class="row g-2 mb-3">
+                            <div class="col-3">
+                                <div class="card border-0 shadow-sm p-2 text-center" style="border-radius: 16px; background: #f0fdf4;">
+                                    <h4 class="fw-bold text-success mb-1" id="stat-visited-count">0</h4>
+                                    <small class="text-success fw-bold" style="font-size: 0.65rem;">VISITED</small>
                                 </div>
                             </div>
-                            <div class="col-6">
-                                <div class="card border-0 shadow-sm p-3 text-center" style="border-radius: 20px; background: #fef2f2;">
+                            <div class="col-3">
+                                <div class="card border-0 shadow-sm p-2 text-center" style="border-radius: 16px; background: #eff6ff;">
+                                    <h4 class="fw-bold text-primary mb-1" id="stat-wishlist-count">0</h4>
+                                    <small class="text-primary fw-bold" style="font-size: 0.65rem;">SAVED</small>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="card border-0 shadow-sm p-2 text-center" style="border-radius: 16px; background: #fffbeb;">
+                                    <h4 class="fw-bold text-warning mb-1" id="stat-review-count">0</h4>
+                                    <small class="text-warning fw-bold" style="font-size: 0.65rem;">REVIEWS</small>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="card border-0 shadow-sm p-2 text-center" style="border-radius: 16px; background: #fef2f2;">
                                     <h4 class="fw-bold text-danger mb-1" id="stat-expense-count">0</h4>
-                                    <small class="text-danger fw-bold" style="font-size: 0.7rem; text-uppercase: uppercase;">Trips</small>
+                                    <small class="text-danger fw-bold" style="font-size: 0.65rem;">EXPENSES</small>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="card border-0 shadow-sm p-3" style="border-radius: 20px;">
+                        <div class="card border-0 shadow-sm p-3 mb-4" style="border-radius: 20px;">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div class="d-flex align-items-center">
                                     <div class="bg-light p-2 rounded-circle me-3 text-primary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="fa-solid fa-bullseye"></i></div>
                                     <div>
-                                        <div class="fw-bold small">Budget Goal</div>
-                                        <div class="text-muted" style="font-size: 0.7rem;">Set monthly limit (₹)</div>
+                                        <div class="fw-bold small">Trip Budget Goal</div>
+                                        <div class="text-muted" style="font-size: 0.7rem;">Set total limit (₹)</div>
                                     </div>
                                 </div>
                                 <input type="number" id="budget-goal-input" class="form-control form-control-sm text-end fw-bold" 
-                                       style="width: 100px; border: none; background: #f8fafc;" 
+                                       style="width: 110px; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 10px;" 
                                        value="10000" onchange="updateBudgetGoal(this.value)">
                             </div>
+                        </div>
+
+                        <h6 class="fw-bold text-secondary small text-uppercase px-2 mb-2" style="letter-spacing: 1.2px;">Recent Activity</h6>
+                        <div id="profile-recent-activity" class="card border-0 shadow-sm p-3" style="border-radius: 20px;">
+                            <p class="text-muted text-center my-3 small mb-0">Loading recent activity...</p>
                         </div>
                     </div>
 
@@ -499,6 +516,7 @@
             setDoc, 
             getDoc,
             collection,
+            collectionGroup,
             query,
             where,
             orderBy,
@@ -528,7 +546,7 @@
         window.fbDb = db;
         window.fbProviders = { GoogleAuthProvider };
         window.fbAuthMethods = { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, sendPasswordResetEmail };
-        window.fbFirestoreMethods = { doc, setDoc, getDoc, collection, query, where, orderBy, getDocs, addDoc, deleteDoc, onSnapshot, serverTimestamp };
+        window.fbFirestoreMethods = { doc, setDoc, getDoc, collection, collectionGroup, query, where, orderBy, getDocs, addDoc, deleteDoc, onSnapshot, serverTimestamp };
 
         console.log("[Firebase SPA] Web SDK fully bridged and initialized.");
 

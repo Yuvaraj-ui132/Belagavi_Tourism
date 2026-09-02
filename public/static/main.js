@@ -101,8 +101,9 @@ function toggleWishlist(btn, placeId, name, folder) {
     }
 }
 
-// Direct client-side Firestore toggling
+// Direct client-side Firestore toggling with robust document query & deletion
 async function toggleWishlistFirestore(btn, placeId, name, folder) {
+    if (!window.fbAuth?.currentUser || !window.fbDb) return;
     const uid = window.fbAuth.currentUser.uid;
     const docId = `${uid}_${placeId}`;
     const docRef = window.fbFirestoreMethods.doc(window.fbDb, "wishlist", docId);
@@ -110,41 +111,65 @@ async function toggleWishlistFirestore(btn, placeId, name, folder) {
     const existing = document.getElementById(`wish-item-${placeId}`);
 
     try {
-        if (existing) {
-            await window.fbFirestoreMethods.deleteDoc(docRef);
-            existing.remove();
-            if (container.children.length === 0 && document.getElementById('empty-msg')) {
+        // Query to find any matching wishlist documents for this user & placeId
+        const q = window.fbFirestoreMethods.query(
+            window.fbFirestoreMethods.collection(window.fbDb, "wishlist"),
+            window.fbFirestoreMethods.where("user_id", "==", uid)
+        );
+        const querySnapshot = await window.fbFirestoreMethods.getDocs(q);
+        
+        const matchingDocs = querySnapshot.docs.filter(docSnap => {
+            const data = docSnap.data();
+            const pId = data.placeId ?? data.place_id ?? docSnap.id.split('_').pop();
+            return String(pId) === String(placeId) || docSnap.id === docId;
+        });
+
+        if (existing || matchingDocs.length > 0) {
+            // DELETE: Delete all matching documents from Firestore
+            for (const d of matchingDocs) {
+                await window.fbFirestoreMethods.deleteDoc(d.ref).catch(e => console.warn(e));
+            }
+            // Also attempt docRef deletion
+            await window.fbFirestoreMethods.deleteDoc(docRef).catch(() => {});
+
+            if (existing) existing.remove();
+
+            // Reset heart button state in Home/Explore grids
+            const saveBtn = btn || document.querySelector(`.save-btn-${placeId}`);
+            if (saveBtn) {
+                saveBtn.innerHTML = `<i class="fa-solid fa-heart me-1"></i> Save`;
+                saveBtn.classList.remove('btn-primary');
+                saveBtn.classList.add('btn-outline-primary');
+            }
+
+            const remaining = container ? container.querySelectorAll('.card').length : 0;
+            if (remaining === 0 && document.getElementById('empty-msg')) {
                 document.getElementById('empty-msg').style.display = 'block';
             }
-            if (btn) {
-                btn.innerHTML = `<i class="fa-solid fa-heart me-1"></i> Save`;
-                btn.classList.replace('btn-primary', 'btn-outline-primary');
-            }
         } else {
+            // ADD: Save to Firestore with both place_id and placeId for cross-platform compatibility
             await window.fbFirestoreMethods.setDoc(docRef, {
                 user_id: uid,
-                place_id: placeId,
-                name: name,
-                folder_name: folder,
+                place_id: Number(placeId) || placeId,
+                placeId: Number(placeId) || placeId,
+                name: name || 'Landmark',
+                placeName: name || 'Landmark',
+                folder_name: folder || 'place',
+                timestamp: window.fbFirestoreMethods.serverTimestamp(),
                 created_at: window.fbFirestoreMethods.serverTimestamp()
             });
             
-            const div = document.createElement('div');
-            div.id = `wish-item-${placeId}`;
-            div.className = "card mb-3 p-2 shadow-sm d-flex flex-row align-items-center border-0 rounded-4";
-            div.innerHTML = `
-                <img src="/static/images/${folder}/1.jpg" loading="lazy" style="width: 70px; height: 70px; object-fit: cover; border-radius: 12px;" onerror="this.src='/static/icon-192.png'">
-                <div class="ms-3 flex-grow-1">
-                    <h6 class="m-0 fw-bold">${name}</h6>
-                </div>
-                <button class="btn btn-link text-danger text-decoration-none" onclick="toggleWishlist(null, ${placeId})"><i class="fa-solid fa-trash-can"></i></button>`;
-            container.appendChild(div);
-            if (document.getElementById('empty-msg')) document.getElementById('empty-msg').style.display = 'none';
-            if (btn) {
-                btn.innerHTML = `<i class="fa-solid fa-heart me-1"></i> Saved`;
-                btn.classList.replace('btn-outline-primary', 'btn-primary');
+            const saveBtn = btn || document.querySelector(`.save-btn-${placeId}`);
+            if (saveBtn) {
+                saveBtn.innerHTML = `<i class="fa-solid fa-heart me-1"></i> Saved`;
+                saveBtn.classList.remove('btn-outline-primary');
+                saveBtn.classList.add('btn-primary');
             }
+
+            // Reload wishlist UI to reflect new item
+            await loadWishlistFirestore();
         }
+
         refreshProfileStats();
     } catch (err) {
         console.error("Firestore wishlist operation failed:", err);
@@ -597,22 +622,212 @@ async function clearAllExpenses() {
     } catch (err) { console.error("Failed to clear", err); }
 }
 
-function updateBudgetGoal(newLimit) {
+async function updateBudgetGoal(newLimit) {
     const limitNumber = parseInt(newLimit, 10);
     if (!limitNumber || limitNumber < 1) return;
     localStorage.setItem('budget_limit', String(limitNumber));
+
+    const limitInput = document.getElementById("budget-goal-input");
+    if (limitInput) limitInput.value = limitNumber;
+
     const limitText = document.getElementById("budget-limit-text");
     if (limitText) limitText.innerText = `₹${limitNumber.toLocaleString('en-IN')}`;
+
+    if (window.fbDb && window.fbAuth && window.fbAuth.currentUser) {
+        try {
+            const uid = window.fbAuth.currentUser.uid;
+            const userRef = window.fbFirestoreMethods.doc(window.fbDb, "users", uid);
+            await window.fbFirestoreMethods.setDoc(userRef, { budget: limitNumber }, { merge: true });
+        } catch (e) {
+            console.error("[Web Profile] Failed to save budget to Firestore:", e);
+        }
+    }
     updateExpenseUI();
 }
 
-function refreshProfileStats() {
-    const wishCount = document.querySelectorAll('#wishlist-items .card').length;
-    const uniqueTrips = [...new Set(expenses.map(e => e.location))].length;
+async function loadWebProfileDataFirestore() {
+    if (!window.fbDb || !window.fbAuth || !window.fbAuth.currentUser) return;
+    const uid = window.fbAuth.currentUser.uid;
+
     const wishEl = document.getElementById('stat-wishlist-count');
-    if (wishEl) wishEl.innerText = wishCount;
-    const tripEl = document.getElementById('stat-expense-count');
-    if (tripEl) tripEl.innerText = uniqueTrips;
+    const expEl = document.getElementById('stat-expense-count');
+    const revEl = document.getElementById('stat-review-count');
+    const visEl = document.getElementById('stat-visited-count');
+    const recentActivityEl = document.getElementById('profile-recent-activity');
+
+    try {
+        // 1. User profile doc for budget
+        const userRef = window.fbFirestoreMethods.doc(window.fbDb, "users", uid);
+        const userSnap = await window.fbFirestoreMethods.getDoc(userRef);
+        if (userSnap.exists() && userSnap.data().budget) {
+            const b = parseInt(userSnap.data().budget, 10);
+            if (b && b > 0) {
+                localStorage.setItem('budget_limit', String(b));
+                const limitInput = document.getElementById("budget-goal-input");
+                if (limitInput) limitInput.value = b;
+                const limitText = document.getElementById("budget-limit-text");
+                if (limitText) limitText.innerText = `₹${b.toLocaleString('en-IN')}`;
+            }
+        }
+
+        // 2. Wishlist query (root collection wishlist where user_id == uid)
+        const wishQuery = window.fbFirestoreMethods.query(
+            window.fbFirestoreMethods.collection(window.fbDb, "wishlist"),
+            window.fbFirestoreMethods.where("user_id", "==", uid)
+        );
+        const wishSnap = await window.fbFirestoreMethods.getDocs(wishQuery);
+        const wishlistDocs = wishSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (wishEl) wishEl.innerText = wishlistDocs.length;
+
+        // 3. Expenses query (root collection expenses where user_id == uid)
+        const expQuery = window.fbFirestoreMethods.query(
+            window.fbFirestoreMethods.collection(window.fbDb, "expenses"),
+            window.fbFirestoreMethods.where("user_id", "==", uid)
+        );
+        const expSnap = await window.fbFirestoreMethods.getDocs(expQuery);
+        const expenseDocs = expSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (expEl) expEl.innerText = expenseDocs.length;
+
+        // 4. Reviews query (collectionGroup comments where userId == uid with per-place fallback)
+        let reviewDocs = [];
+        try {
+            const { collectionGroup, query, where, getDocs } = window.fbFirestoreMethods;
+            if (collectionGroup) {
+                const revQuery = query(collectionGroup(window.fbDb, "comments"), where("userId", "==", uid));
+                const revSnap = await getDocs(revQuery);
+                reviewDocs = revSnap.docs.map(d => ({ id: d.id, parentPlaceId: d.ref.parent?.parent?.id, ...d.data() }));
+            }
+        } catch (revErr) {
+            console.warn("[Web Profile] CollectionGroup comments query warning:", revErr);
+        }
+
+        // Fallback if collectionGroup returned no docs: scan known places comments
+        if (reviewDocs.length === 0 && (window.cachedPlacesFromFirestore || window.allPlacesData)) {
+            const placesList = window.cachedPlacesFromFirestore || window.allPlacesData || [];
+            const { collection, query, where, getDocs } = window.fbFirestoreMethods;
+            for (const p of placesList) {
+                try {
+                    const commentsRef = collection(window.fbDb, "reviews", String(p.id), "comments");
+                    const qUser = query(commentsRef, where("userId", "==", uid));
+                    const snapUser = await getDocs(qUser);
+                    snapUser.docs.forEach(d => {
+                        reviewDocs.push({ id: d.id, parentPlaceId: String(p.id), ...d.data() });
+                    });
+                } catch (e) {
+                    // Ignore individual place query errors
+                }
+            }
+        }
+        if (revEl) revEl.innerText = reviewDocs.length;
+
+        // 5. Visited count = Unique places interacted with across wishlist, expenses, and reviews
+        const visitedPlaces = new Set();
+        expenseDocs.forEach(e => {
+            const loc = e.location || e.placeName;
+            if (loc) visitedPlaces.add(loc.trim().toLowerCase());
+        });
+        wishlistDocs.forEach(w => {
+            const name = w.name || w.placeName;
+            if (name) visitedPlaces.add(name.trim().toLowerCase());
+        });
+        reviewDocs.forEach(r => {
+            if (r.parentPlaceId) visitedPlaces.add(`place_${r.parentPlaceId}`);
+        });
+        if (visEl) visEl.innerText = visitedPlaces.size;
+
+        // 6. Recent Activity Stream
+        const activities = [];
+
+        wishlistDocs.forEach(w => {
+            const name = w.name || w.placeName || 'Landmark';
+            const ts = w.timestamp?.seconds ? w.timestamp.seconds * 1000 : (w.created_at?.seconds ? w.created_at.seconds * 1000 : 0);
+            activities.push({
+                type: 'wishlist',
+                icon: 'fa-heart text-danger bg-danger-subtle',
+                title: `Saved ${name}`,
+                subtitle: 'Added to your wishlist',
+                dateStr: ts ? new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Saved',
+                timestamp: ts
+            });
+        });
+
+        expenseDocs.forEach(e => {
+            const name = e.name || e.title || 'Expense';
+            const amount = e.amount || 0;
+            const category = e.category || 'Misc';
+            const location = e.location || e.placeName || 'Belagavi';
+            const ts = e.created_at?.seconds ? e.created_at.seconds * 1000 : 0;
+            activities.push({
+                type: 'expense',
+                icon: 'fa-wallet text-primary bg-primary-subtle',
+                title: `Tracked ₹${amount.toLocaleString('en-IN')} for ${category}`,
+                subtitle: `${name} at ${location}`,
+                dateStr: e.date || 'Recent',
+                timestamp: ts
+            });
+        });
+
+        reviewDocs.forEach(r => {
+            const rating = r.rating || 5;
+            const text = r.text || r.comment || '';
+            const ts = r.timestamp?.seconds ? r.timestamp.seconds * 1000 : 0;
+
+            let placeName = '';
+            if (r.parentPlaceId) {
+                const placesList = window.cachedPlacesFromFirestore || window.allPlacesData || [];
+                const found = placesList.find(p => String(p.id) === String(r.parentPlaceId));
+                if (found) placeName = found.name;
+            }
+
+            const displayTitle = placeName ? `Reviewed ${placeName} (${rating}★)` : `Reviewed place (${rating}★)`;
+
+            activities.push({
+                type: 'review',
+                icon: 'fa-star text-warning bg-warning-subtle',
+                title: displayTitle,
+                subtitle: text ? `"${text.substring(0, 32)}..."` : 'Submitted a review',
+                dateStr: r.date || (ts ? new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Recent'),
+                timestamp: ts
+            });
+        });
+
+        activities.sort((a, b) => b.timestamp - a.timestamp);
+
+        if (recentActivityEl) {
+            if (activities.length === 0) {
+                recentActivityEl.innerHTML = `
+                    <div class="text-center py-3 text-muted">
+                        <i class="fa-solid fa-clock-rotate-left mb-2 opacity-50" style="font-size: 1.5rem;"></i>
+                        <p class="small mb-0">No recent activity yet. Save places, submit reviews, and track expenses to see them here!</p>
+                    </div>`;
+            } else {
+                let html = '<div class="d-flex flex-column gap-3">';
+                activities.slice(0, 5).forEach(act => {
+                    html += `
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background: #f1f5f9;">
+                                    <i class="fa-solid ${act.icon}" style="font-size: 0.9rem;"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold small text-dark">${act.title}</div>
+                                    <div class="text-muted" style="font-size: 0.75rem;">${act.subtitle}</div>
+                                </div>
+                            </div>
+                            <span class="text-muted small fw-medium" style="font-size: 0.7rem;">${act.dateStr}</span>
+                        </div>`;
+                });
+                html += '</div>';
+                recentActivityEl.innerHTML = html;
+            }
+        }
+    } catch (err) {
+        console.error("[Web Profile] Firestore load profile data failed:", err);
+    }
+}
+
+function refreshProfileStats() {
+    loadWebProfileDataFirestore();
 }
 
 // Client-side dynamically render places lists inside index.html home section
@@ -698,6 +913,7 @@ function navigateToPlace(placeId) {
 
 // Load wishlist items directly from Firestore client-side
 async function loadWishlistFirestore() {
+    if (!window.fbAuth?.currentUser || !window.fbDb) return;
     const uid = window.fbAuth.currentUser.uid;
     const q = window.fbFirestoreMethods.query(
         window.fbFirestoreMethods.collection(window.fbDb, "wishlist"),
@@ -715,23 +931,28 @@ async function loadWishlistFirestore() {
         querySnapshot.forEach(docSnap => {
             count++;
             const data = docSnap.data();
+            const pid = data.placeId ?? data.place_id ?? docSnap.id.split('_').pop();
+            const placeName = data.name || data.placeName || 'Saved Landmark';
+            const folderName = data.folder_name || 'place';
+
             const div = document.createElement('div');
-            div.id = `wish-item-${data.place_id}`;
+            div.id = `wish-item-${pid}`;
             div.className = "card mb-3 p-2 shadow-sm d-flex flex-row align-items-center border-0 rounded-4";
             div.innerHTML = `
-                <img src="/static/images/${data.folder_name}/1.jpg" loading="lazy" style="width: 70px; height: 70px; object-fit: cover; border-radius: 12px;" onerror="this.src='/static/icon-192.png'">
+                <img src="/static/images/${folderName}/1.jpg" loading="lazy" style="width: 70px; height: 70px; object-fit: cover; border-radius: 12px;" onerror="this.src='/static/icon-192.png'">
                 <div class="ms-3 flex-grow-1">
-                    <h6 class="m-0 fw-bold">${data.name}</h6>
+                    <h6 class="m-0 fw-bold">${placeName}</h6>
                     <small class="text-muted">Saved Landmark</small>
                 </div>
-                <button class="btn btn-link text-danger text-decoration-none" onclick="toggleWishlist(null, ${data.place_id})"><i class="fa-solid fa-trash-can"></i></button>`;
+                <button class="btn btn-link text-danger text-decoration-none" onclick="toggleWishlist(null, ${pid}, '${placeName.replace(/'/g, "\\'")}', '${folderName}')"><i class="fa-solid fa-trash-can"></i></button>`;
             wishlistContainer.appendChild(div);
             
             // Sync heart button states in Home page grids
-            const saveBtn = document.querySelector(`.save-btn-${data.place_id}`);
+            const saveBtn = document.querySelector(`.save-btn-${pid}`);
             if (saveBtn) {
                 saveBtn.innerHTML = `<i class="fa-solid fa-heart me-1"></i> Saved`;
-                saveBtn.classList.replace('btn-outline-primary', 'btn-primary');
+                saveBtn.classList.remove('btn-outline-primary');
+                saveBtn.classList.add('btn-primary');
             }
         });
 
@@ -1670,6 +1891,7 @@ function initReactiveSPAAuth() {
             // Load direct data from Firestore
             await loadWishlistFirestore();
             await loadExpensesFirestore();
+            await loadWebProfileDataFirestore();
 
             // Toggle screens
             if (authContainer) authContainer.style.display = "none";
@@ -1687,6 +1909,28 @@ function initReactiveSPAAuth() {
         } else {
             console.log("[Firebase SPA] User is logged out.");
             window.currentUser = null;
+            expenses = [];
+            localStorage.removeItem('budget_limit');
+
+            // Reset profile stats and state on logout so user data never leaks
+            const wishEl = document.getElementById('stat-wishlist-count');
+            const expEl = document.getElementById('stat-expense-count');
+            const revEl = document.getElementById('stat-review-count');
+            const visEl = document.getElementById('stat-visited-count');
+            const recentActivityEl = document.getElementById('profile-recent-activity');
+            const wishlistContainer = document.getElementById('wishlist-items');
+            const expenseList = document.getElementById('expense-list');
+            const budgetInput = document.getElementById('budget-goal-input');
+
+            if (wishEl) wishEl.innerText = "0";
+            if (expEl) expEl.innerText = "0";
+            if (revEl) revEl.innerText = "0";
+            if (visEl) visEl.innerText = "0";
+            if (recentActivityEl) recentActivityEl.innerHTML = `<p class="text-muted text-center my-3 small mb-0">Logged out.</p>`;
+            if (wishlistContainer) wishlistContainer.innerHTML = '';
+            if (expenseList) expenseList.innerHTML = '';
+            if (budgetInput) budgetInput.value = "10000";
+
             if (appView) appView.style.display = "none";
             if (authContainer) authContainer.style.display = "block";
 
