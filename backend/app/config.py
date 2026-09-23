@@ -153,7 +153,13 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000)
     app_reload: bool = Field(default=False)
     cors_origins: Union[List[str], str] = Field(
-        default=["http://localhost:3000", "http://localhost:5000", "http://127.0.0.1:5500"],
+        default=[
+            "http://localhost:3000",
+            "http://localhost:5000",
+            "http://127.0.0.1:5500",
+            "https://belagavi-tourism-planner.web.app",
+            "https://belagavi-tourism-planner.firebaseapp.com",
+        ],
         description="Allowed CORS origins as a list, comma-separated string, or '*'",
     )
 
