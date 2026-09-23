@@ -348,8 +348,9 @@ def test_cors_origins_parsing():
 
 
 def test_vercel_entrypoint_imports_app():
-    """Verify that api/index.py exports a valid FastAPI application instance."""
+    """Verify that api/index.py exports a valid FastAPI application instance and normalizes paths."""
     from fastapi import FastAPI
+    from fastapi.testclient import TestClient
     from api.index import app as vercel_app
 
     assert isinstance(vercel_app, FastAPI)
@@ -359,4 +360,13 @@ def test_vercel_entrypoint_imports_app():
     assert "/api/health" in route_paths
     assert "/api/search" in route_paths
     assert "/api/chat" in route_paths
+
+    client = TestClient(vercel_app)
+    # Test path normalization when Vercel strips /api prefix
+    r_docs = client.get("/docs")
+    assert r_docs.status_code == 200
+
+    r_root = client.get("/")
+    assert r_root.status_code == 200
+    assert r_root.json()["service"] == "Belagavi Tourism AI Backend"
 
