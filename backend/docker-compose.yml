@@ -1,0 +1,52 @@
+services:
+  # ==========================================================================
+  # PostgreSQL + pgvector
+  # ==========================================================================
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: belagavi_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-belagavi_tourism_ai}
+      POSTGRES_USER: ${POSTGRES_USER:-belagavi_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-belagavi_user} -d ${POSTGRES_DB:-belagavi_tourism_ai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ==========================================================================
+  # FastAPI Application
+  # ==========================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: belagavi_api
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      # Override DB host to use Docker service name
+      POSTGRES_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      # Mount public/ read-only so the ingestion script can access /public/static/data.js.
+      # ingest.py resolves: Path(__file__).parent.parent.parent / "public" / "static" / "data.js"
+      # Inside the container __file__ = /app/scripts/ingest.py → three .parent calls = /
+      # Therefore the expected container path is exactly /public/static/data.js.
+      - ../public:/public:ro
+
+volumes:
+  postgres_data:
+    name: belagavi_tourism_postgres_data

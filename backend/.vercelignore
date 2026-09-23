@@ -1,0 +1,24 @@
+# Environment & Secrets (NEVER include in deployment)
+.env
+.env.*
+*.env
+
+# Python & Virtualenv
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Testing & Cache
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local Docker files not needed on Vercel
+Dockerfile
+docker-compose.yml
+
+# Docs & Scratch
+README.md

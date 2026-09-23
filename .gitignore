@@ -16,3 +16,8 @@ local.properties
 *.jks
 *.keystore
 google-services.json
+
+# Backend AI secrets — NEVER commit the actual .env
+backend/.env
+backend/venv/
+backend/__pycache__/
