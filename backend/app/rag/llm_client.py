@@ -41,54 +41,59 @@ class LLMClient:
         Call the LLM with the RAG-augmented prompt and parse the JSON response.
 
         Returns a dict with keys: answer, destinations, sources.
-        On failure, returns a safe fallback dict (does not raise).
-
-        Retry policy: up to 3 attempts with exponential back-off (2 s, 4 s) when
-        a 503 UNAVAILABLE is returned.  This handles transient demand spikes on
-        Gemini models without changing the public interface or raising to callers.
+        On failure or timeout, returns a safe fallback dict (does not raise).
         """
-        max_attempts = 3
+        import time
+        start_time = time.monotonic()
+        logger.info("[AI] LLM started (model=%s)", self._model)
+
+        models_to_try = [self._model]
+        for candidate in ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.8-flash"]:
+            if candidate not in models_to_try:
+                models_to_try.append(candidate)
+
         last_exc: Exception | None = None
 
-        for attempt in range(1, max_attempts + 1):
+        for idx, model_name in enumerate(models_to_try[:2]):
+            per_call_timeout = 12.0 if idx == 0 else 6.0
+            call_start = time.monotonic()
             try:
-                response = self._client.models.generate_content(
-                    model=self._model,
-                    contents=prompt,
+                response = await asyncio.wait_for(
+                    self._client.aio.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                    ),
+                    timeout=per_call_timeout,
                 )
+                elapsed = round(time.monotonic() - start_time, 2)
+                logger.info("[AI] LLM completed (model=%s, elapsed=%.2fs)", model_name, elapsed)
                 raw_text = response.text.strip()
-                if attempt > 1:
-                    logger.info("LLM succeeded on attempt %d", attempt)
                 return self._parse_llm_json(raw_text)
 
+            except asyncio.TimeoutError:
+                call_elapsed = round(time.monotonic() - call_start, 2)
+                logger.warning(
+                    "[AI] LLM timeout after %.2fs on model=%s",
+                    call_elapsed,
+                    model_name,
+                )
+                last_exc = TimeoutError(f"LLM timed out after {call_elapsed}s on {model_name}")
             except Exception as exc:
+                call_elapsed = round(time.monotonic() - call_start, 2)
                 last_exc = exc
-                exc_str = str(exc)
-
-                # Identify if this is a transient 503 / UNAVAILABLE error
-                status_code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
-                is_503 = status_code == 503 or "503" in exc_str or "UNAVAILABLE" in exc_str
-                is_4xx = (
-                    (isinstance(status_code, int) and 400 <= status_code < 500)
-                    or any(code in exc_str for code in ["400", "401", "403", "404", "422", "INVALID_ARGUMENT", "PERMISSION_DENIED"])
+                logger.warning(
+                    "[AI] LLM call failed (model=%s, elapsed=%.2fs): %s",
+                    model_name,
+                    call_elapsed,
+                    exc,
                 )
 
-                if is_503 and not is_4xx and attempt < max_attempts:
-                    wait = 2 ** (attempt - 1) * 2  # 2 s, 4 s
-                    logger.warning(
-                        "LLM transient 503/UNAVAILABLE on attempt %d/%d — retrying in %ds: %s",
-                        attempt, max_attempts, wait, exc_str[:100],
-                    )
-                    await asyncio.sleep(wait)
-                else:
-                    # Non-retryable error (e.g. 4xx/config) or final attempt exhausted
-                    break
-
-        logger.error("LLM generation failed after %d attempts: %s", max_attempts, last_exc)
+        total_elapsed = round(time.monotonic() - start_time, 2)
+        logger.error("[AI] LLM generation failed across models (total_elapsed=%.2fs): %s", total_elapsed, last_exc)
         return {
             "answer": (
-                "I'm sorry, I'm unable to process your request at the moment. "
-                "Please try again later."
+                "The AI assistant took longer than expected to process your request. "
+                "Please tap Retry or try asking again in a moment."
             ),
             "destinations": [],
             "sources": [],

@@ -26,7 +26,7 @@ os.environ["POSTGRES_DB"] = "belagavi_tourism_ai_test"
 os.environ["POSTGRES_USER"] = "belagavi_user"
 os.environ["POSTGRES_PASSWORD"] = "testpassword"
 os.environ["GEMINI_EMBEDDING_MODEL"] = "gemini-embedding-001"
-os.environ["GEMINI_LLM_MODEL"] = "gemini-3.5-flash"
+os.environ["GEMINI_LLM_MODEL"] = "gemini-3-flash-preview"
 os.environ["GEMINI_EMBEDDING_DIMENSION"] = "768"
 
 

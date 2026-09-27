@@ -41,7 +41,7 @@ class Settings(BaseSettings):
         description="Gemini embedding model name",
     )
     gemini_llm_model: str = Field(
-        default="gemini-3.5-flash",
+        default="gemini-3-flash-preview",
         description="Gemini generative model name",
     )
 
@@ -185,6 +185,29 @@ class Settings(BaseSettings):
     rag_top_k: int = Field(default=5, description="Documents to retrieve per query")
     rag_similarity_threshold: float = Field(
         default=0.3, description="Minimum cosine similarity to include a result"
+    )
+
+    # -----------------------------------------------------------------------
+    # Web Research settings
+    # -----------------------------------------------------------------------
+    # Gemini Grounding with Google Search is the primary web research layer.
+    # It uses the existing GEMINI_API_KEY — no extra credentials required.
+    # Allowance: 5,000 free grounding queries/month (Gemini 3.x family).
+    #
+    # Tavily is an optional secondary/fallback layer.
+    # Sign up free at https://tavily.com — 1,000 credits/month, no card needed.
+    # Leave unset to use Gemini Grounding only.
+    tavily_api_key: Optional[str] = Field(
+        default="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",
+        alias="TAVILY_API_KEY",
+        description="Optional Tavily Search API key for supplemental web research.",
+    )
+
+    # Master switch — set to false to disable ALL web research (e.g. for testing).
+    # Defaults to True so the feature is on when credentials are present.
+    web_research_enabled: bool = Field(
+        default=True,
+        description="Enable/disable web-grounded research globally.",
     )
 
     # -----------------------------------------------------------------------

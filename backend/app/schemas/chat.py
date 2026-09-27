@@ -4,7 +4,9 @@ Pydantic schemas for the RAG chat endpoint.
 Design:
 - ChatRequest:  user message + optional conversation history
 - DestinationRecommendation: LLM-generated 'reason' field + deterministic fields from DB
+- WebSource: a single web search result with citation URL (new — web-grounded research)
 - ChatResponse: structured output — answer text + recommended destinations + source names
+                + optional web_sources from web research
 
 The LLM generates ONLY:
   - answer (free-form explanation text)
@@ -12,7 +14,8 @@ The LLM generates ONLY:
 
 The LLM does NOT generate:
   - place_id, name, entry_fee, lat, lon, visit_duration (come from DB record)
-  
+  - web source URLs (come from actual search result metadata — never invented)
+
 This keeps deterministic data trustworthy and prevents hallucination of facts.
 """
 
@@ -72,3 +75,24 @@ class ChatResponse(BaseModel):
     )
     sources: List[str] = Field(description="Names of retrieved destinations used as context")
     retrieved_count: int = Field(description="Number of documents retrieved from pgvector")
+    # Web research fields — present only when web research was triggered.
+    # Default to empty / False so existing clients see no change for normal queries.
+    web_sources: List["WebSource"] = Field(
+        default_factory=list,
+        description="Web search results used to ground the answer (empty when web research not used)",
+    )
+    web_research_used: bool = Field(
+        default=False,
+        description="True when web-grounded research was performed for this query",
+    )
+
+
+class WebSource(BaseModel):
+    """
+    A single web search result / citation.
+
+    URLs come ONLY from actual search result metadata — never invented by the LLM.
+    """
+    title: str = Field(description="Page title from search result")
+    url: str = Field(description="Full URL of the source page")
+    domain: str = Field(description="Bare domain name, e.g. karnatakatourism.org")
