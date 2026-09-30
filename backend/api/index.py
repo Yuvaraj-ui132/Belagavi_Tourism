@@ -17,34 +17,36 @@ from fastapi import Request
 from app.main import app  # noqa: E402
 
 
-@app.middleware("http")
-async def _normalize_vercel_path(request: Request, call_next):
-    """
-    Handle Vercel's serverless path stripping.
-    When Vercel routes /api/health to api/index.py, Vercel strips the /api
-    prefix, delivering scope['path'] as /health instead of /api/health.
-    This middleware restores the /api prefix so FastAPI's routes match seamlessly.
-    """
-    matched_path = request.headers.get("x-matched-path")
-    path = request.scope.get("path", "")
-    if matched_path and matched_path.startswith("/api"):
-        request.scope["path"] = matched_path
-    elif not path.startswith("/api") and path not in (
-        "/docs",
-        "/openapi.json",
-        "/redoc",
-        "/docs/oauth2-redirect",
-        "/",
-    ):
-        request.scope["path"] = f"/api{path}"
-    return await call_next(request)
+if app.middleware_stack is None:
+    @app.middleware("http")
+    async def _normalize_vercel_path(request: Request, call_next):
+        """
+        Handle Vercel's serverless path stripping.
+        When Vercel routes /api/health to api/index.py, Vercel strips the /api
+        prefix, delivering scope['path'] as /health instead of /api/health.
+        This middleware restores the /api prefix so FastAPI's routes match seamlessly.
+        """
+        matched_path = request.headers.get("x-matched-path")
+        path = request.scope.get("path", "")
+        if matched_path and matched_path.startswith("/api"):
+            request.scope["path"] = matched_path
+        elif not path.startswith("/api") and path not in (
+            "/docs",
+            "/openapi.json",
+            "/redoc",
+            "/docs/oauth2-redirect",
+            "/",
+        ):
+            request.scope["path"] = f"/api{path}"
+        return await call_next(request)
 
 
-@app.get("/", include_in_schema=False)
-async def _root():
-    return {
-        "service": "Belagavi Tourism AI Backend",
-        "status": "online",
-        "docs": "/docs",
-        "health": "/api/health",
-    }
+if not any(getattr(route, "path", None) == "/" for route in app.routes):
+    @app.get("/", include_in_schema=False)
+    async def _root():
+        return {
+            "service": "Belagavi Tourism AI Backend",
+            "status": "online",
+            "docs": "/docs",
+            "health": "/api/health",
+        }

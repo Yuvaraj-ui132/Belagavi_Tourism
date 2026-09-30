@@ -62,12 +62,8 @@ class RAGService:
         req_start = time.monotonic()
         settings = get_settings()
 
-        logger.info("[AI] request received: message=%r", request.message)
+        logger.info("[AI] request received")
 
-        # ------------------------------------------------------------------
-        # Step 0: Greeting fast-path — bypass RAG, embeddings, web research,
-        # and LLM calls for standard conversational greetings
-        # ------------------------------------------------------------------
         # ------------------------------------------------------------------
         # Step 0: Greeting fast-path — bypass RAG, embeddings, web research,
         # and LLM calls for standard conversational greetings
@@ -75,17 +71,18 @@ class RAGService:
         clean_msg = re.sub(r"[^\w\s]", "", request.message.strip().lower())
         words = clean_msg.split()
         greeting_phrases = {
-            "hi", "hello", "hey", "hiya", "howdy", "greetings",
-            "namaste", "namaskar", "namaskara", "vanakkam",
+            "hi", "hello", "hey", "hi there", "hello there", "hey there",
             "good morning", "good afternoon", "good evening", "good day",
-            "start", "help", "who are you"
+            "namaste", "namaskar", "namaskara", "vanakkam", "howdy", "hiya",
+            "greetings", "start", "help", "who are you",
         }
         non_greeting_words = {
             "waterfall", "waterfalls", "fort", "forts", "temple", "temples",
             "lake", "lakes", "falls", "history", "historical", "hospital",
             "hospitals", "hotel", "hotels", "food", "tour", "trip", "places",
             "place", "where", "what", "which", "how", "tell", "show", "open",
-            "timing", "entry", "fee", "cost", "ticket", "sada", "gokak", "belagavi"
+            "timing", "entry", "fee", "cost", "ticket", "sada", "gokak", "belagavi",
+            "weather", "temperature", "rain", "climate"
         }
         is_greeting = (
             clean_msg in greeting_phrases
@@ -97,7 +94,9 @@ class RAGService:
             )
         )
         if is_greeting:
-            logger.info("[AI] Greeting detected (%r) — bypassing RAG/LLM for instant response", request.message)
+            elapsed_ms = int((time.monotonic() - req_start) * 1000)
+            logger.info("[AI] route=greeting")
+            logger.info("[AI] response_returned latency=%dms", elapsed_ms)
             return ChatResponse(
                 answer="Hello! I am your Belagavi Tourism AI Assistant. How can I help you plan your trip, explore waterfalls, heritage forts, or find places to visit in Belagavi today?",
                 destinations=[],
@@ -116,11 +115,8 @@ class RAGService:
         do_web_research = (
             settings.web_research_enabled and needs_web_research(request.message)
         )
-        logger.info(
-            "[AI] query classification: message=%r, class=%s",
-            request.message,
-            "web_research" if do_web_research else "local_rag",
-        )
+        route_name = "web_research" if do_web_research else "local_rag"
+        logger.info("[AI] route=%s", route_name)
 
         # ------------------------------------------------------------------
         # Step 2: Retrieve relevant destinations from pgvector
@@ -130,32 +126,25 @@ class RAGService:
 
         async def _run_rag() -> List[Destination]:
             t0 = time.monotonic()
-            logger.info("[AI] local RAG started")
             docs = await search_svc.get_top_for_rag(
                 db=db,
                 query=request.message,
                 top_k=settings.rag_top_k,
             )
-            elapsed = round(time.monotonic() - t0, 2)
-            logger.info("[AI] local RAG completed (docs=%d, elapsed=%.2fs)", len(docs), elapsed)
             return docs
 
         async def _run_web() -> list:
-            t0 = time.monotonic()
-            logger.info("[AI] web research started")
+            logger.info("[AI] web_research_started")
             web_svc = get_web_research_service()
             try:
                 srcs = await asyncio.wait_for(web_svc.search(request.message), timeout=5.0)
-                elapsed = round(time.monotonic() - t0, 2)
-                logger.info("[AI] web research completed (sources=%d, elapsed=%.2fs)", len(srcs), elapsed)
+                logger.info("[AI] web_research_completed")
                 return srcs
             except asyncio.TimeoutError:
-                elapsed = round(time.monotonic() - t0, 2)
-                logger.warning("[AI] web research timeout after %.2fs", elapsed)
+                logger.warning("[AI] web_research_completed (timeout)")
                 return []
             except Exception as exc:
-                elapsed = round(time.monotonic() - t0, 2)
-                logger.warning("[AI] web research failed (elapsed=%.2fs): %s", elapsed, exc)
+                logger.warning("[AI] web_research_completed (error: %s)", exc)
                 return []
 
         if do_web_research:
@@ -278,7 +267,7 @@ class RAGService:
 
         # If LLM generation failed across all models, synthesize a rich RAG-grounded response
         if llm_failed:
-            logger.info("[AI] LLM unavailable/failed — generating rich RAG-grounded response from context")
+            logger.info("[AI] rag_fallback_used=true")
             clean_answer = self._synthesize_rag_fallback(
                 query=request.message,
                 retrieved_docs=retrieved_docs,
@@ -371,14 +360,8 @@ class RAGService:
             if src.url
         ]
 
-        total_elapsed = round(time.monotonic() - req_start, 2)
-        logger.info(
-            "[AI] response returned (total_elapsed=%.2fs, answer_chars=%d, destinations=%d, web_sources=%d)",
-            total_elapsed,
-            len(clean_answer),
-            len(recommendations),
-            len(web_sources_schema),
-        )
+        elapsed_ms = int((time.monotonic() - req_start) * 1000)
+        logger.info("[AI] response_returned latency=%dms", elapsed_ms)
 
         return ChatResponse(
             answer=clean_answer,
@@ -461,6 +444,21 @@ class RAGService:
             if meta_parts:
                 lines.append("\n• " + " | ".join(meta_parts))
             return "\n".join(lines).strip()
+
+        # Case 3b: Weather / Climate query
+        if any(w in query_lower for w in ("weather", "temperature", "forecast", "climate", "rain", "monsoon")):
+            lines = [
+                "**Current Weather & Climate Overview for Belagavi**:",
+            ]
+            if web_sources_raw:
+                for src in web_sources_raw[:3]:
+                    if src.title:
+                        lines.append(f"• {src.title}")
+            lines.append(
+                "\nBelagavi enjoys a pleasant subtropical highland climate at an elevation of ~762m in the Western Ghats. "
+                "Daytime temperatures typically range from 20°C to 32°C. The region experiences active monsoons from June to September, followed by clear, cool weather from October to February."
+            )
+            return "\n".join(lines)
 
         # Case 4: Category or list query with multiple destinations (e.g. Waterfalls)
         if retrieved_docs:

@@ -77,13 +77,7 @@ class LLMClient:
             per_call_timeout = timeouts[idx] if idx < len(timeouts) else 3.0
             call_start = time.monotonic()
             try:
-                logger.info(
-                    "[AI] LLM attempt %d/%d (model=%s, timeout=%.1fs)",
-                    idx + 1,
-                    len(models_to_try),
-                    model_name,
-                    per_call_timeout,
-                )
+                logger.info("[AI] llm_model_attempt=%s", model_name)
                 response = await asyncio.wait_for(
                     self._client.aio.models.generate_content(
                         model=model_name,
@@ -91,54 +85,40 @@ class LLMClient:
                     ),
                     timeout=per_call_timeout,
                 )
-                elapsed = round(time.monotonic() - call_start, 2)
+                latency_ms = int((time.monotonic() - call_start) * 1000)
                 raw_text = (response.text or "").strip()
                 parsed = self._parse_llm_json(raw_text)
                 if parsed.get("answer"):
-                    total_elapsed = round(time.monotonic() - start_time, 2)
-                    logger.info(
-                        "[AI] LLM success (model=%s, attempt_elapsed=%.2fs, total_elapsed=%.2fs)",
-                        model_name,
-                        elapsed,
-                        total_elapsed,
-                    )
+                    logger.info("[AI] llm_model_success=%s latency=%dms", model_name, latency_ms)
                     parsed["_model_used"] = model_name
                     return parsed
                 else:
-                    logger.warning(
-                        "[AI] LLM returned empty answer (model=%s, elapsed=%.2fs)",
-                        model_name,
-                        elapsed,
-                    )
+                    logger.warning("[AI] llm_model_failure=%s error=empty_answer", model_name)
+                    if idx + 1 < len(models_to_try):
+                        logger.info("[AI] llm_fallback=%s", models_to_try[idx + 1])
             except asyncio.TimeoutError:
-                call_elapsed = round(time.monotonic() - call_start, 2)
+                call_elapsed_ms = int((time.monotonic() - call_start) * 1000)
                 last_error_type = "timeout"
-                last_exc = TimeoutError(f"LLM timed out after {call_elapsed}s on {model_name}")
-                logger.warning(
-                    "[AI] LLM timeout after %.2fs on model=%s -> failing over to next model",
-                    call_elapsed,
-                    model_name,
-                )
+                last_exc = TimeoutError(f"LLM timed out after {call_elapsed_ms}ms on {model_name}")
+                logger.warning("[AI] llm_model_failure=%s error=timeout", model_name)
+                if idx + 1 < len(models_to_try):
+                    logger.info("[AI] llm_fallback=%s", models_to_try[idx + 1])
             except Exception as exc:
-                call_elapsed = round(time.monotonic() - call_start, 2)
+                call_elapsed_ms = int((time.monotonic() - call_start) * 1000)
                 last_exc = exc
                 exc_str = str(exc)
-                if "429" in exc_str:
+                if "429" in exc_str or "RESOURCE_EXHAUSTED" in exc_str:
                     last_error_type = "429_quota"
-                elif "503" in exc_str:
+                elif "503" in exc_str or "UNAVAILABLE" in exc_str:
                     last_error_type = "503_unavailable"
-                elif "404" in exc_str:
+                elif "404" in exc_str or "NOT_FOUND" in exc_str:
                     last_error_type = "404_not_found"
                 else:
                     last_error_type = type(exc).__name__
 
-                logger.warning(
-                    "[AI] LLM call failed (model=%s, error_type=%s, elapsed=%.2fs): %s -> failing over to next model",
-                    model_name,
-                    last_error_type,
-                    call_elapsed,
-                    exc,
-                )
+                logger.warning("[AI] llm_model_failure=%s error=%s", model_name, last_error_type)
+                if idx + 1 < len(models_to_try):
+                    logger.info("[AI] llm_fallback=%s", models_to_try[idx + 1])
 
         total_elapsed = round(time.monotonic() - start_time, 2)
         logger.error(
