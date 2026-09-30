@@ -1,580 +1,1406 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Belagavi Travel Planner</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Explore the hidden gems of Belagavi district — forts, waterfalls, temples, wildlife, and more. Plan your trip with maps, navigation, and a budget tracker.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Belagavi — Discover Karnataka's Hidden Gem</title>
+    <meta name="description" content="Explore the hidden wonders of Belagavi district — forts, waterfalls, temples, wildlife and more. Plan your journey with maps, navigation and a travel budget tracker.">
 
-    <!-- Google Fonts -->
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- FontAwesome Icons -->
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="/static/style.css?v=20260902-auth-v2">
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+    <!-- Design System -->
+    <link rel="stylesheet" href="/static/style.css?v=20260924-ai-prod">
     <link rel="manifest" href="/static/manifest.json">
-    
-    <style>
-        /* Loading screen overlay */
-        #splash-loader {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #1e3a8a;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            color: white;
-            transition: opacity 0.4s ease-out;
-        }
-    </style>
+    <link rel="icon" href="/static/icon-192.png" type="image/png">
 </head>
 <body>
 
-    <!-- Splash Loading Overlay -->
-    <div id="splash-loader">
-        <div class="spinner-border text-light mb-3" style="width: 3rem; height: 3rem;" role="status">
-            <span class="visually-hidden">Loading...</span>
+<!-- ═══════════════════════════════════════════════════════════
+     SPLASH LOADER
+════════════════════════════════════════════════════════════ -->
+<div id="splash-loader">
+    <div class="splash-pulse"></div>
+    <div class="splash-wordmark">Belagavi</div>
+    <div class="splash-sub">Karnataka Tourism</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     AUTH CONTAINER (unauthenticated state)
+════════════════════════════════════════════════════════════ -->
+<div id="auth-container" style="display:none;">
+
+    <!-- WELCOME VIEW -->
+    <div id="welcome-view" class="auth-view auth-hero-bg">
+        <div class="auth-card">
+            <span class="auth-eyebrow">Karnataka Tourism</span>
+            <h1 class="auth-title">Discover<br><em>Belagavi</em></h1>
+            <p class="auth-desc">Waterfalls. Forts. Temples. Wildlife.<br>Explore the district's hidden wonders — planned just for you.</p>
+
+            <div class="auth-places">
+                <span class="auth-place-tag">🏰 Belagavi Fort</span>
+                <span class="auth-place-tag">💧 Gokak Falls</span>
+                <span class="auth-place-tag">🌿 Chorla Ghat</span>
+                <span class="auth-place-tag">🦅 Dandeli Wildlife</span>
+                <span class="auth-place-tag">🏛️ Kittur</span>
+            </div>
+
+            <button class="btn-auth-primary" onclick="switchAuthView('login')">
+                <i class="fa-solid fa-arrow-right-to-bracket"></i> Start Exploring
+            </button>
+            <button class="btn-auth-secondary" onclick="switchAuthView('register')">
+                <i class="fa-solid fa-user-plus"></i> Create Account
+            </button>
         </div>
-        <h4 class="fw-bold">Belagavi Tourism Planner</h4>
-        <p class="small opacity-75">Configuring secure Firebase session...</p>
     </div>
 
-    <!-- 1. AUTH & WELCOME VIEWS (Seen when unauthenticated) -->
-    <div id="auth-container" style="display: none;">
-        
-        <!-- Welcome View -->
-        <div id="welcome-view" class="auth-view auth-hero-bg text-white text-center px-3"
-             style="background: linear-gradient(135deg, rgba(10, 25, 47, 0.88) 0%, rgba(30, 58, 138, 0.85) 50%, rgba(15, 23, 42, 0.92) 100%), url('/static/images/gokak/1.jpg') center/cover no-repeat fixed, #0f172a; min-height: 100vh; width: 100%; display: flex; align-items: center; justify-content: center; padding: 40px 15px;">
-            <div class="auth-welcome-card" style="background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 28px; padding: 44px 32px; width: 100%; max-width: 540px; border: 1px solid rgba(255, 255, 255, 0.25); box-shadow: 0 30px 70px rgba(0,0,0,0.6); position: relative; z-index: 10;">
-                <div class="mb-4">
-                    <span class="auth-brand-badge" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.35); color: #ffffff; padding: 8px 20px; border-radius: 50px; font-size: 0.85rem; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,0.5);">
-                        <i class="fa-solid fa-compass text-warning me-1"></i> Karnataka's Heritage & Waterfalls
-                    </span>
-                </div>
-                <div class="auth-icon-wrapper mx-auto mb-3" style="width: 70px; height: 70px; background: linear-gradient(135deg, #2563eb, #1d4ed8); border-radius: 22px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 12px 30px rgba(37, 99, 235, 0.5);">
-                    <i class="fa-solid fa-map-location-dot text-white" style="font-size:2.2rem"></i>
-                </div>
-                <h1 class="display-5 fw-bold mb-3 text-white" style="letter-spacing: -0.5px; text-shadow: 0 2px 10px rgba(0,0,0,0.5);">Discover Belagavi</h1>
-                <p class="lead mb-4 text-white" style="font-size: 1.08rem; line-height: 1.6; opacity: 0.95; text-shadow: 0 1px 4px rgba(0,0,0,0.5);">
-                    Explore majestic waterfalls, ancient hill forts, historic temples, and plan your trips with our smart budget manager.
-                </p>
+    <!-- LOGIN VIEW -->
+    <div id="login-view" class="auth-view" style="display:none; background: var(--cream);">
+        <div class="auth-form-card">
+            <h2 class="auth-form-title">Welcome back</h2>
+            <p class="auth-form-sub">Sign in to continue your Belagavi journey</p>
 
-                <!-- Belagavi Tourism Landmark Badges -->
-                <div class="d-flex flex-wrap justify-content-center gap-2 mb-4">
-                    <span class="auth-landmark-pill" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.35); color: #ffffff; padding: 7px 16px; border-radius: 50px; font-size: 0.82rem; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.5); backdrop-filter: blur(8px);"><i class="fa-solid fa-water text-info me-1"></i> Gokak Falls</span>
-                    <span class="auth-landmark-pill" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.35); color: #ffffff; padding: 7px 16px; border-radius: 50px; font-size: 0.82rem; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.5); backdrop-filter: blur(8px);"><i class="fa-solid fa-chess-rook text-warning me-1"></i> Belagavi Fort</span>
-                    <span class="auth-landmark-pill" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.35); color: #ffffff; padding: 7px 16px; border-radius: 50px; font-size: 0.82rem; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.5); backdrop-filter: blur(8px);"><i class="fa-solid fa-gopuram text-danger me-1"></i> Military Mahadeva</span>
-                    <span class="auth-landmark-pill" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.35); color: #ffffff; padding: 7px 16px; border-radius: 50px; font-size: 0.82rem; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.5); backdrop-filter: blur(8px);"><i class="fa-solid fa-tree text-success me-1"></i> Jamboti Hills</span>
-                </div>
+            <div id="login-error" class="auth-error"></div>
+            <div id="forgot-success" class="auth-success"></div>
 
-                <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
-                    <button onclick="switchAuthView('login')" class="btn btn-light btn-lg px-5 fw-bold rounded-pill" style="background: #ffffff; color: #0f172a; border: none; box-shadow: 0 10px 25px rgba(0,0,0,0.3); font-weight: 700;">Sign In</button>
-                    <button onclick="switchAuthView('register')" class="btn btn-primary btn-lg px-5 fw-bold rounded-pill" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.4); box-shadow: 0 10px 25px rgba(37,99,235,0.4); font-weight: 700;">Create Account</button>
+            <div class="form-field">
+                <label for="login-email">Email</label>
+                <div class="form-field-inner">
+                    <i class="fa-solid fa-envelope field-icon"></i>
+                    <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
                 </div>
             </div>
-        </div>
-
-        <!-- Login Card View -->
-        <div id="login-view" class="auth-view auth-hero-bg" style="background: linear-gradient(135deg, rgba(10, 25, 47, 0.88) 0%, rgba(30, 58, 138, 0.85) 50%, rgba(15, 23, 42, 0.92) 100%), url('/static/images/gokak/1.jpg') center/cover no-repeat fixed, #0f172a; min-height: 100vh; width: 100%; display: none; align-items: center; justify-content: center; padding: 30px 15px;">
-            <div class="auth-glass-card" style="background: rgba(255, 255, 255, 0.97); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 28px; padding: 40px 36px; width: 100%; max-width: 440px; box-shadow: 0 25px 60px rgba(0,0,0,0.5); border: 1px solid rgba(255, 255, 255, 0.4); position: relative; z-index: 10;">
-                <div class="text-center mb-4">
-                    <div class="auth-icon-wrapper mx-auto mb-3" style="width: 56px; height: 56px; background: linear-gradient(135deg, #2563eb, #1d4ed8); border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(37,99,235,0.4);">
-                        <i class="fa-solid fa-map-location-dot text-white" style="font-size:1.35rem"></i>
-                    </div>
-                    <h2 class="fw-bold text-dark mb-1" style="font-size: 1.65rem;">Welcome Back</h2>
-                    <p class="text-muted small mb-0">Sign in to start exploring Belagavi</p>
+            <div class="form-field">
+                <label for="login-password">Password</label>
+                <div class="form-field-inner">
+                    <i class="fa-solid fa-lock field-icon"></i>
+                    <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter') firebaseEmailLoginDirect()">
                 </div>
-
-                <div id="login-error" class="alert alert-danger py-2 small text-center rounded-3 mb-3" style="display:none"></div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-semibold small text-dark mb-1">Email Address</label>
-                    <div class="auth-input-group position-relative">
-                        <input type="email" id="login-email" class="form-control ps-5" style="height:50px; border-radius:14px; background:#f8fafc; border:1.5px solid #e2e8f0;" placeholder="your@email.com">
-                        <i class="fa-solid fa-envelope auth-input-icon" style="position:absolute; left:16px; top:50%; transform:translateY(-50%); color:#64748b;"></i>
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <label class="form-label fw-semibold small text-dark mb-0">Password</label>
-                        <button type="button" onclick="forgotPasswordDirect()" class="btn btn-link btn-sm p-0 text-primary fw-semibold text-decoration-none" style="font-size:0.78rem">
-                            Forgot Password?
-                        </button>
-                    </div>
-                    <div class="auth-input-group position-relative">
-                        <input type="password" id="login-password" class="form-control ps-5" style="height:50px; border-radius:14px; background:#f8fafc; border:1.5px solid #e2e8f0;" placeholder="••••••••">
-                        <i class="fa-solid fa-lock auth-input-icon" style="position:absolute; left:16px; top:50%; transform:translateY(-50%); color:#64748b;"></i>
-                    </div>
-                </div>
-
-                <div id="forgot-success" class="alert alert-success py-2 small text-center rounded-3 mb-3" style="display:none"></div>
-
-                <button onclick="firebaseEmailLoginDirect()" id="login-btn"
-                        class="btn auth-btn-primary w-100 mb-3" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: none; color: white; height: 50px; border-radius: 14px; font-weight: 700; font-size: 1rem; box-shadow: 0 8px 20px rgba(37,99,235,0.35);">
-                    <i class="fa-solid fa-right-to-bracket me-2"></i>Sign In
-                </button>
-
-                <div class="d-flex align-items-center gap-2 mb-3">
-                    <hr class="flex-grow-1 border-secondary opacity-25 my-0"><small class="text-muted fw-semibold">or</small><hr class="flex-grow-1 border-secondary opacity-25 my-0">
-                </div>
-
-                <button onclick="firebaseGoogleLoginDirect()" id="login-google-btn"
-                        class="btn auth-btn-google w-100 mb-4 d-flex align-items-center justify-content-center gap-2" style="background: #ffffff; border: 1.5px solid #e2e8f0; color: #334155; height: 50px; border-radius: 14px; font-weight: 600; font-size: 0.95rem;">
-                    <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                    Continue with Google
-                </button>
-
-                <p class="text-center text-muted small mb-0">
-                    Don't have an account? <a href="#" onclick="switchAuthView('register'); return false;" class="text-primary fw-bold text-decoration-none">Register now</a>
-                </p>
             </div>
-        </div>
 
-        <!-- Register Card View -->
-        <div id="register-view" class="auth-view auth-hero-bg" style="background: linear-gradient(135deg, rgba(10, 25, 47, 0.88) 0%, rgba(30, 58, 138, 0.85) 50%, rgba(15, 23, 42, 0.92) 100%), url('/static/images/gokak/1.jpg') center/cover no-repeat fixed, #0f172a; min-height: 100vh; width: 100%; display: none; align-items: center; justify-content: center; padding: 30px 15px;">
-            <div class="auth-glass-card" style="background: rgba(255, 255, 255, 0.97); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 28px; padding: 40px 36px; width: 100%; max-width: 440px; box-shadow: 0 25px 60px rgba(0,0,0,0.5); border: 1px solid rgba(255, 255, 255, 0.4); position: relative; z-index: 10;">
-                <div class="text-center mb-4">
-                    <div class="auth-icon-wrapper mx-auto mb-3" style="width: 56px; height: 56px; background: linear-gradient(135deg, #2563eb, #1d4ed8); border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(37,99,235,0.4);">
-                        <i class="fa-solid fa-user-plus text-white" style="font-size:1.35rem"></i>
-                    </div>
-                    <h2 class="fw-bold text-dark mb-1" style="font-size: 1.65rem;">Create Account</h2>
-                    <p class="text-muted small mb-0">Join to explore Belagavi heritage & nature</p>
-                </div>
+            <button class="btn-form-submit" id="login-submit-btn" onclick="firebaseEmailLoginDirect()">Sign In</button>
+            <button class="btn-google" onclick="firebaseGoogleLoginDirect()">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google">
+                Continue with Google
+            </button>
 
-                <div id="register-error" class="alert alert-danger py-2 small text-center rounded-3 mb-3" style="display:none"></div>
+            <div class="divider">or</div>
 
-                <div class="mb-3">
-                    <label class="form-label fw-semibold small text-dark mb-1">Email Address</label>
-                    <div class="auth-input-group position-relative">
-                        <input type="email" id="register-email" class="form-control ps-5" style="height:50px; border-radius:14px; background:#f8fafc; border:1.5px solid #e2e8f0;" placeholder="your@email.com">
-                        <i class="fa-solid fa-envelope auth-input-icon" style="position:absolute; left:16px; top:50%; transform:translateY(-50%); color:#64748b;"></i>
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-semibold small text-dark mb-1">Password</label>
-                    <div class="auth-input-group position-relative">
-                        <input type="password" id="register-password" class="form-control ps-5" style="height:50px; border-radius:14px; background:#f8fafc; border:1.5px solid #e2e8f0;" placeholder="Min. 6 characters">
-                        <i class="fa-solid fa-lock auth-input-icon" style="position:absolute; left:16px; top:50%; transform:translateY(-50%); color:#64748b;"></i>
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <label class="form-label fw-semibold small text-dark mb-1">Confirm Password</label>
-                    <div class="auth-input-group position-relative">
-                        <input type="password" id="register-confirm" class="form-control ps-5" style="height:50px; border-radius:14px; background:#f8fafc; border:1.5px solid #e2e8f0;" placeholder="Re-enter password">
-                        <i class="fa-solid fa-shield-halved auth-input-icon" style="position:absolute; left:16px; top:50%; transform:translateY(-50%); color:#64748b;"></i>
-                    </div>
-                </div>
-
-                <button onclick="firebaseRegisterDirect()" id="register-btn"
-                        class="btn auth-btn-primary w-100 mb-3" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: none; color: white; height: 50px; border-radius: 14px; font-weight: 700; font-size: 1rem; box-shadow: 0 8px 20px rgba(37,99,235,0.35);">
-                    <i class="fa-solid fa-user-plus me-2"></i>Create Account
-                </button>
-
-                <div class="d-flex align-items-center gap-2 mb-3">
-                    <hr class="flex-grow-1 border-secondary opacity-25 my-0"><small class="text-muted fw-semibold">or</small><hr class="flex-grow-1 border-secondary opacity-25 my-0">
-                </div>
-
-                <button onclick="firebaseGoogleLoginDirect()" id="register-google-btn"
-                        class="btn auth-btn-google w-100 mb-4 d-flex align-items-center justify-content-center gap-2" style="background: #ffffff; border: 1.5px solid #e2e8f0; color: #334155; height: 50px; border-radius: 14px; font-weight: 600; font-size: 0.95rem;">
-                    <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                    Sign up with Google
-                </button>
-
-                <p class="text-center text-muted small mb-0">
-                    Already have an account? <a href="#" onclick="switchAuthView('login'); return false;" class="text-primary fw-bold text-decoration-none">Sign in</a>
-                </p>
+            <div style="text-align:center;">
+                <button class="btn-text" style="font-size:.8rem;color:var(--ink-muted);" onclick="forgotPasswordDirect()">Forgot password?</button>
             </div>
-        </div>
 
+            <p class="auth-switch">
+                New to Belagavi? <a href="#" onclick="switchAuthView('register');return false;">Create account</a>
+            </p>
+            <p class="auth-switch" style="margin-top:8px;">
+                <a href="#" onclick="switchAuthView('welcome');return false;" style="font-size:.8rem;color:var(--ink-faint);">← Back</a>
+            </p>
+        </div>
     </div>
 
-    <!-- 2. CORE APP FRAMES (Seen when authenticated) -->
-    <div id="app-view" style="display: none;">
-        
-        <!-- Navbar -->
-        <nav class="navbar navbar-light border-bottom px-3 py-2 top-auth-nav shadow-sm" aria-label="Account">
-            <a class="navbar-brand fw-bold text-primary mb-0 text-decoration-none" href="#" onclick="show('home'); return false;">
-                <i class="fa-solid fa-map-location-dot me-2"></i>Belagavi
-            </a>
-            <div class="d-flex flex-wrap gap-2 align-items-center ms-auto">
-                <a href="#" onclick="show('profile'); return false;" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-user me-1"></i> Profile</a>
-                <button onclick="firebaseLogoutDirect()" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-right-from-bracket me-1"></i> Logout</button>
-            </div>
-        </nav>
+    <!-- REGISTER VIEW -->
+    <div id="register-view" class="auth-view" style="display:none; background: var(--cream);">
+        <div class="auth-form-card">
+            <h2 class="auth-form-title">Create account</h2>
+            <p class="auth-form-sub">Join and start planning your Belagavi trip</p>
 
-        <div class="container-fluid p-0">
-            
-            <!-- Home Section (Default View) -->
-            <div id="home" class="section explore-view" style="display:block;">
-                <div class="hero" style="background: linear-gradient(135deg, #2563eb, #1e40af); color: white; padding: 50px 20px; text-align: center; border-radius: 0 0 20px 20px; box-shadow: 0 10px 30px rgba(37,99,235,0.2);">
-                    <h1 class="fw-bold">Discover Belagavi</h1>
-                    <p class="opacity-75">Explore the wonders of the local district</p>
-                    <div class="search-container mt-4">
-                        <div class="position-relative mx-auto" style="max-width: 500px;">
-                            <i class="fa-solid fa-magnifying-glass position-absolute" style="left: 20px; top: 15px; color: #94a3b8;"></i>
-                            <input type="text" id="search" placeholder="Search across all places..." 
-                                   onkeyup="filterPlaces()" 
-                                   style="width: 100%; padding: 12px 20px 12px 50px; border-radius: 25px; border: none; outline: none; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                        </div>
-                    </div>
+            <div id="register-error" class="auth-error"></div>
+
+            <div class="form-field">
+                <label for="register-email">Email</label>
+                <div class="form-field-inner">
+                    <i class="fa-solid fa-envelope field-icon"></i>
+                    <input type="email" id="register-email" placeholder="you@example.com" autocomplete="email">
                 </div>
-
-                <div class="container-fluid mt-4 pb-5">
-                    <div id="placeGrid">
-                        <h5 class="fw-bold mb-3 px-2">Featured Spots</h5>
-                        <div class="row g-3 px-2">
-                            <!-- Populated Dynamically client-side from public/data.js -->
-                        </div>
-                    </div>
+            </div>
+            <div class="form-field">
+                <label for="register-password">Password</label>
+                <div class="form-field-inner">
+                    <i class="fa-solid fa-lock field-icon"></i>
+                    <input type="password" id="register-password" placeholder="Min 6 characters" autocomplete="new-password">
+                </div>
+            </div>
+            <div class="form-field">
+                <label for="register-confirm">Confirm Password</label>
+                <div class="form-field-inner">
+                    <i class="fa-solid fa-shield-halved field-icon"></i>
+                    <input type="password" id="register-confirm" placeholder="Repeat password" autocomplete="new-password" onkeydown="if(event.key==='Enter') firebaseRegisterDirect()">
                 </div>
             </div>
 
-            <!-- EXPLORE SECTION — Map primary, side panel for places list -->
-            <div id="explore" class="section p-0 position-relative" style="display:none; height: calc(100vh - 125px); overflow: hidden;">
-                <!-- Floating Top Bar -->
-                <div class="explore-top-bar shadow" style="position:absolute;top:12px;left:50%;transform:translateX(-50%);width:calc(100% - 24px);max-width:560px;z-index:600;background:rgba(255,255,255,0.97);backdrop-filter:blur(12px);border-radius:16px;padding:12px 14px;">
-                    <div class="d-flex gap-2 align-items-center mb-2">
-                        <input type="text" id="exploreSearch" class="form-control rounded-pill border-0 shadow-sm px-3"
-                               placeholder="Search places..." onkeyup="applyExploreFilters()" style="font-size:0.88rem">
-                        <button class="btn btn-dark rounded-pill shadow-sm text-nowrap px-3 fw-bold"
-                                onclick="toggleSidePanel()" style="font-size:0.82rem; flex-shrink:0">
-                            <i class="fa-solid fa-bars-staggered me-1"></i><span id="panel-btn-text">Places</span>
-                        </button>
-                    </div>
-                    <!-- Category Pills -->
-                    <div class="d-flex gap-2 overflow-auto pb-1" style="white-space:nowrap;scrollbar-width:none">
-                        <button class="btn btn-sm btn-primary rounded-pill explore-filter-btn fw-bold" data-cat="all" onclick="setCategory('all',this)">All</button>
-                        <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="waterfall" onclick="setCategory('waterfall',this)">💧 Waterfall</button>
-                        <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="temple" onclick="setCategory('temple',this)">🛕 Temple</button>
-                        <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="fort" onclick="setCategory('fort',this)">🏰 Fort</button>
-                        <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="nature" onclick="setCategory('nature',this)">🌿 Nature</button>
-                        <button class="btn btn-sm btn-light rounded-pill explore-filter-btn border" data-cat="wildlife" onclick="setCategory('wildlife',this)">🦅 Wildlife</button>
-                    </div>
-                </div>
+            <button class="btn-form-submit" id="register-submit-btn" onclick="firebaseRegisterDirect()">Create Account</button>
+            <button class="btn-google" onclick="firebaseGoogleLoginDirect()">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google">
+                Continue with Google
+            </button>
 
-                <!-- Full-screen map -->
-                <div id="explore-map" class="h-100 w-100"></div>
+            <p class="auth-switch">
+                Already have an account? <a href="#" onclick="switchAuthView('login');return false;">Sign in</a>
+            </p>
+        </div>
+    </div>
 
-                <!-- Recenter button -->
-                <button onclick="recenterExploreMap()"
-                        class="btn btn-white shadow rounded-circle d-flex align-items-center justify-content-center"
-                        style="position:absolute;bottom:24px;right:16px;z-index:600;width:46px;height:46px;background:white;border:none">
-                    <i class="fa-solid fa-location-crosshairs text-primary" style="font-size:1.1rem"></i>
+</div><!-- /auth-container -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     APP VIEW (authenticated)
+════════════════════════════════════════════════════════════ -->
+<div id="app-view" style="display:none;">
+
+    <!-- TOP NAVIGATION -->
+    <nav class="top-nav" id="top-nav">
+        <a class="nav-brand" href="#" onclick="show('home'); return false;" aria-label="Belagavi Tourism Home">
+            <div class="nav-brand-mark">B</div>
+            <div>
+                <div class="nav-brand-name">Belagavi</div>
+                <span class="nav-brand-sub">Karnataka</span>
+            </div>
+        </a>
+
+        <ul class="nav-links" role="navigation" aria-label="Primary navigation">
+            <li><button class="nav-link-btn active" id="nav-home" onclick="show('home')" data-section="home">Discover</button></li>
+            <li><button class="nav-link-btn" id="nav-explore" onclick="show('explore')" data-section="explore">Explore Map</button></li>
+            <li><button class="nav-link-btn" id="nav-wishlist" onclick="show('wishlist')" data-section="wishlist">Saved</button></li>
+            <li><button class="nav-link-btn" id="nav-expense" onclick="show('expense')" data-section="expense">Trips &amp; Budget</button></li>
+            <li><button class="nav-link-btn" id="nav-ai-assistant" onclick="if(window.clearAIGuideContext)window.clearAIGuideContext();show('ai-assistant');" data-section="ai-assistant">AI Guide</button></li>
+        </ul>
+
+        <div class="nav-actions">
+            <button class="nav-profile-btn" id="nav-profile-btn" onclick="show('profile')" aria-label="Profile">
+                <div class="nav-avatar" id="nav-avatar-char">?</div>
+                <span id="nav-username-short">Account</span>
+            </button>
+            <button class="nav-logout-btn" onclick="firebaseLogoutDirect()" title="Sign out" aria-label="Sign out">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ── HOME SECTION ────────────────────────────────────── -->
+    <div id="home" class="section active-section">
+
+        <!-- Hero Banner -->
+        <div class="home-hero" id="home-hero">
+            <img class="hero-img" src="/static/images/jalavane_falls/1.jpg" alt="Jalavane Falls, Belagavi" id="hero-img" onerror="this.src='/static/icon-192.png'">
+            <div class="hero-overlay"></div>
+            <div class="hero-scroll-hint">Scroll</div>
+            <div class="hero-content">
+                <div class="hero-eyebrow">Karnataka's Northern Crown</div>
+                <h1 class="hero-title">Explore<br><em>Belagavi</em></h1>
+                <p class="hero-subtitle">Waterfalls, ancient forts, dense forests, and living traditions — all within reach.</p>
+            </div>
+        </div>
+
+        <!-- Category Chips -->
+        <div class="home-section" style="padding-top: 40px; padding-bottom: 0;">
+            <div class="section-header" style="margin-bottom: 14px;">
+                <div class="section-eyebrow" style="margin-bottom: 0;">Browse by type</div>
+            </div>
+            <div class="category-strip" id="category-strip" role="toolbar" aria-label="Filter by category">
+                <button class="category-chip active" data-category="all" onclick="filterByCategory(this, 'all')">
+                    <span class="category-chip-icon">🗺️</span> All Places
                 </button>
+                <button class="category-chip" data-category="Waterfall" onclick="filterByCategory(this, 'Waterfall')">
+                    <span class="category-chip-icon">💧</span> Waterfalls
+                </button>
+                <button class="category-chip" data-category="Heritage" onclick="filterByCategory(this, 'Heritage')">
+                    <span class="category-chip-icon">🏰</span> Heritage
+                </button>
+                <button class="category-chip" data-category="Wildlife" onclick="filterByCategory(this, 'Wildlife')">
+                    <span class="category-chip-icon">🦁</span> Wildlife
+                </button>
+                <button class="category-chip" data-category="Temple" onclick="filterByCategory(this, 'Temple')">
+                    <span class="category-chip-icon">🛕</span> Temples
+                </button>
+                <button class="category-chip" data-category="Nature" onclick="filterByCategory(this, 'Nature')">
+                    <span class="category-chip-icon">🌿</span> Nature
+                </button>
+                <button class="category-chip" data-category="Adventure" onclick="filterByCategory(this, 'Adventure')">
+                    <span class="category-chip-icon">🧗</span> Adventure
+                </button>
+                <button class="category-chip" data-category="Dam" onclick="filterByCategory(this, 'Dam')">
+                    <span class="category-chip-icon">🏞️</span> Dams
+                </button>
+            </div>
 
-                <!-- No results message -->
-                <div id="no-results-msg" class="position-absolute top-50 start-50 translate-middle text-center"
-                     style="display:none;z-index:500;pointer-events:none">
-                    <i class="fa-solid fa-magnifying-glass text-muted" style="font-size:2.5rem;opacity:0.4"></i>
-                    <h6 class="text-muted mt-3 fw-bold">No places found</h6>
+            <!-- In-Page Explore Search Bar (Below Category Chips, Above Destinations) -->
+            <div class="explore-search-wrap" style="margin-top: 24px;">
+                <div class="explore-search-bar" role="search">
+                    <i class="fa-solid fa-magnifying-glass explore-search-icon" aria-hidden="true"></i>
+                    <input type="text" id="hero-search-input" placeholder="Search destinations, experiences…" aria-label="Search destinations" onkeyup="filterDestinations(this.value)">
+                    <button type="button" class="explore-search-btn" onclick="filterDestinations(document.getElementById('hero-search-input').value)">Search</button>
                 </div>
+            </div>
+        </div>
 
-                <!-- Slide-in side panel -->
-                <div id="explore-side-panel"
-                     style="position:absolute;top:0;right:-310px;width:295px;height:100%;background:white;
-                            z-index:700;box-shadow:-6px 0 24px rgba(0,0,0,0.12);
-                            transition:right 0.28s cubic-bezier(0.4,0,0.2,1);
-                            overflow-y:auto;overscroll-behavior:contain">
-                    <div style="position:sticky;top:0;background:white;z-index:10;padding:16px 14px 10px">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="fw-bold mb-0" style="font-size:0.92rem">All Places</h6>
-                                <small class="text-muted" id="panel-count" style="font-size:0.75rem">Loading...</small>
+        <!-- Destinations Grid -->
+        <div class="home-section" style="padding-top: 28px;">
+            <div class="section-header" style="align-items: center; margin-bottom: 18px;">
+                <div class="section-eyebrow" style="margin-bottom: 0;">Destinations</div>
+                <button type="button" class="btn-view-map" onclick="show('explore')" aria-label="View on Map">
+                    <span class="btn-view-map-icon">🗺️</span> View on Map <i class="fa-solid fa-arrow-right" style="font-size:.72rem;"></i>
+                </button>
+            </div>
+            <!-- Dynamic destination cards rendered by JS -->
+            <div class="dest-grid" id="places-container">
+                <!-- Skeleton cards while loading -->
+                <div class="dest-card" aria-hidden="true">
+                    <div class="card-img-wrap"><div class="skeleton" style="width:100%;height:100%;"></div></div>
+                    <div class="card-body"><div class="skeleton" style="height:18px;width:70%;margin-bottom:8px;border-radius:4px;"></div><div class="skeleton" style="height:14px;width:50%;border-radius:4px;"></div></div>
+                </div>
+                <div class="dest-card" aria-hidden="true">
+                    <div class="card-img-wrap"><div class="skeleton" style="width:100%;height:100%;"></div></div>
+                    <div class="card-body"><div class="skeleton" style="height:18px;width:70%;margin-bottom:8px;border-radius:4px;"></div><div class="skeleton" style="height:14px;width:50%;border-radius:4px;"></div></div>
+                </div>
+                <div class="dest-card" aria-hidden="true">
+                    <div class="card-img-wrap"><div class="skeleton" style="width:100%;height:100%;"></div></div>
+                    <div class="card-body"><div class="skeleton" style="height:18px;width:70%;margin-bottom:8px;border-radius:4px;"></div><div class="skeleton" style="height:14px;width:50%;border-radius:4px;"></div></div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /home -->
+
+    <!-- ── EXPLORE MAP ──────────────────────────────────────── -->
+    <div id="explore" class="section">
+        <div style="position:relative;width:100%;height:100%;">
+            <!-- Floating search bar -->
+            <div class="explore-bar">
+                <div class="explore-search-row">
+                    <i class="fa-solid fa-magnifying-glass explore-search-icon"></i>
+                    <input type="text" class="explore-search-input" id="map-search-input" placeholder="Search on map…" oninput="filterMapMarkers(this.value)" aria-label="Search map">
+                    <button class="explore-toggle-btn" onclick="toggleSidePanel()" aria-label="Toggle places list">
+                        <i class="fa-solid fa-list"></i>
+                    </button>
+                </div>
+                <div class="explore-filter-scroll" id="map-filter-row" role="toolbar" aria-label="Map filter">
+                    <button class="explore-filter-btn active" data-cat="all" onclick="mapFilterCategory(this,'all')">All</button>
+                    <button class="explore-filter-btn" data-cat="Waterfall" onclick="mapFilterCategory(this,'Waterfall')">Waterfalls</button>
+                    <button class="explore-filter-btn" data-cat="Heritage" onclick="mapFilterCategory(this,'Heritage')">Heritage</button>
+                    <button class="explore-filter-btn" data-cat="Wildlife" onclick="mapFilterCategory(this,'Wildlife')">Wildlife</button>
+                    <button class="explore-filter-btn" data-cat="Temple" onclick="mapFilterCategory(this,'Temple')">Temples</button>
+                    <button class="explore-filter-btn" data-cat="Nature" onclick="mapFilterCategory(this,'Nature')">Nature</button>
+                </div>
+            </div>
+
+            <!-- Map -->
+            <div id="explore-map" role="application" aria-label="Interactive map of Belagavi destinations"></div>
+
+            <!-- Recenter -->
+            <button class="explore-recenter" onclick="recenterMap()" title="Recenter map" aria-label="Recenter map">
+                <i class="fa-solid fa-location-crosshairs"></i>
+            </button>
+
+            <!-- Side panel -->
+            <div class="explore-side-panel" id="side-panel">
+                <div class="panel-header">
+                    <div>
+                        <div class="panel-title">Destinations</div>
+                        <div class="panel-count" id="panel-count">— places</div>
+                    </div>
+                    <button class="panel-close" onclick="toggleSidePanel()" aria-label="Close panel">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="panel-list" id="panel-list"></div>
+            </div>
+        </div>
+    </div><!-- /explore -->
+
+    <!-- ── WISHLIST / SAVED ─────────────────────────────────── -->
+    <div id="wishlist" class="section">
+        <div class="saved-section">
+            <h1 class="saved-page-title">Saved Places</h1>
+            <p class="saved-page-sub">Your personal shortlist of Belagavi destinations</p>
+            <div id="wishlist-items" class="wishlist-grid">
+                <div class="wishlist-loading-state" style="grid-column:1/-1;">
+                    <div class="wishlist-spinner"></div>
+                    <div class="wishlist-loading-text">Loading saved places...</div>
+                </div>
+            </div>
+        </div>
+    </div><!-- /wishlist -->
+
+    <!-- ── BUDGET / EXPENSE ─────────────────────────────────── -->
+    <div id="expense" class="section">
+        <div class="budget-section">
+            <h1 class="budget-page-title">Trip Budget</h1>
+            <p class="budget-page-sub">Track every rupee of your Belagavi adventure</p>
+
+            <!-- Budget summary card -->
+            <div class="budget-summary-card">
+                <div class="budget-summary-row">
+                    <div>
+                        <div class="budget-summary-label">Total Spent</div>
+                        <div class="budget-summary-amount" id="total-expense">₹0</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="budget-summary-label">Budget Goal</div>
+                        <div class="budget-summary-limit" id="budget-limit-text">₹10,000</div>
+                    </div>
+                </div>
+                <div class="budget-progress-bar">
+                    <div class="budget-progress-fill" id="budget-progress-fill" style="width:0%"></div>
+                </div>
+                <div class="budget-status-row">
+                    <div class="budget-progress-text" id="budget-progress-text">₹0 of ₹10,000 used</div>
+                    <div class="budget-alert-badge" id="budget-alert-badge" style="display:none;"></div>
+                </div>
+            </div>
+
+            <!-- Budget goal -->
+            <div class="budget-goal-row">
+                <div>
+                    <div class="budget-goal-label">Set Budget Goal</div>
+                    <div class="budget-goal-sub">Adjust your travel budget limit</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:.85rem;color:var(--ink-muted);font-weight:600;">₹</span>
+                    <input type="number" class="budget-goal-input" id="budget-goal-input" value="10000" min="0" oninput="updateBudgetGoal(this.value)" onchange="updateBudgetGoal(this.value)" aria-label="Budget goal amount">
+                </div>
+            </div>
+
+            <!-- Add expense form -->
+            <div class="budget-form-card">
+                <div class="budget-form-title">Add Expense</div>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label class="field-label" for="expense-label">Description</label>
+                        <input type="text" class="field-input" id="expense-label" placeholder="e.g. Gokak Entry Fee" aria-label="Expense description">
+                    </div>
+                    <div class="form-col">
+                        <label class="field-label" for="expense-category">Category</label>
+                        <select class="field-select" id="expense-category" aria-label="Expense category">
+                            <option value="Food">🍽️ Food</option>
+                            <option value="Transport">🚌 Transport</option>
+                            <option value="Stay">🏨 Stay</option>
+                            <option value="Entry">🎟️ Entry Fee</option>
+                            <option value="Shopping">🛍️ Shopping</option>
+                            <option value="Other">📦 Other</option>
+                        </select>
+                    </div>
+                    <div class="form-col">
+                        <label class="field-label" for="expense-dest">Destination</label>
+                        <select class="field-select" id="expense-dest" aria-label="Destination for expense">
+                            <option value="" disabled selected>Select Destination</option>
+                        </select>
+                    </div>
+                    <div class="form-col-full" style="display:flex;gap:12px;align-items:flex-end;">
+                        <div style="flex:1;">
+                            <label class="field-label" for="expense-amount">Amount</label>
+                            <div class="field-input-group">
+                                <span class="field-prefix">₹</span>
+                                <input type="number" class="field-input" id="expense-amount" placeholder="0" min="0" aria-label="Expense amount" onkeydown="if(event.key==='Enter') addExpenseDirect()">
                             </div>
-                            <button onclick="toggleSidePanel()"
-                                    class="btn btn-sm btn-light rounded-circle d-flex align-items-center justify-content-center"
-                                    style="width:30px;height:30px;padding:0;border:none">
-                                <i class="fa-solid fa-xmark" style="font-size:0.8rem"></i>
+                        </div>
+                        <button class="btn-add-expense" id="btn-add-expense" onclick="addExpenseDirect()">
+                            <i class="fa-solid fa-plus" style="margin-right:6px;"></i>Add
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Spending Breakdown -->
+            <div id="spending-breakdown-section" class="breakdown-section">
+                <div class="breakdown-header">
+                    <h2 class="breakdown-title">Spending Breakdown</h2>
+                    <p class="breakdown-subtitle">See where your trip budget is going</p>
+                </div>
+                <div class="breakdown-grid">
+                    <!-- By Category Card -->
+                    <div class="breakdown-card">
+                        <div class="breakdown-card-header">
+                            <h3 class="breakdown-card-title">By Category</h3>
+                        </div>
+                        <div id="breakdown-category-list" class="breakdown-items"></div>
+                    </div>
+
+                    <!-- By Destination Card -->
+                    <div class="breakdown-card">
+                        <div class="breakdown-card-header">
+                            <h3 class="breakdown-card-title">By Destination</h3>
+                        </div>
+                        <div id="breakdown-destination-list" class="breakdown-items"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Expense list -->
+            <div class="expense-list-header">
+                <div class="expense-list-title">All Expenses</div>
+                <button class="btn-clear-all" onclick="clearAllExpensesDirect()">Clear all</button>
+            </div>
+            <div id="expense-list"></div>
+
+        </div>
+    </div><!-- /expense -->
+
+    <!-- ── PROFILE ──────────────────────────────────────────── -->
+    <div id="profile" class="section">
+        <div class="profile-section">
+
+            <!-- Profile banner -->
+            <div class="profile-banner">
+                <div class="profile-banner-bg"></div>
+                <div class="profile-banner-body">
+                    <div class="profile-avatar-wrap">
+                        <div class="profile-avatar" id="profile-avatar">?</div>
+                    </div>
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                        <div>
+                            <div class="profile-name" id="profile-username">Traveller</div>
+                            <div class="profile-email" id="profile-email">—</div>
+                        </div>
+                        <div class="profile-banner-actions">
+                            <button type="button" class="btn-profile-action" onclick="openEditProfileModal()" title="Edit Name">
+                                <i class="fa-solid fa-pen-to-square"></i> Edit Name
+                            </button>
+                            <button type="button" class="btn-profile-action" onclick="switchProfileTab('settings')" title="Settings &amp; Security">
+                                <i class="fa-solid fa-gear"></i> Settings
                             </button>
                         </div>
                     </div>
-                    <div id="side-panel-list" class="px-3 pb-5">
-                        <!-- Dynamically populated -->
-                    </div>
                 </div>
             </div>
 
-            <!-- Wishlist Section -->
-            <div id="wishlist" class="section mt-4 explore-view" style="display:none;">
-                <h5 class="fw-bold mb-3 px-3"><i class="fa-solid fa-heart text-danger me-2"></i>My Saved Places</h5>
-                <div id="wishlist-items" class="px-3 pb-5">
-                    <div id="empty-msg" class="text-center p-5 text-muted">
-                        <i class="fa-regular fa-heart mb-3" style="font-size: 3rem; opacity: 0.5;"></i>
-                        <p>Your wishlist is empty!<br>Add places from Home or Explore.</p>
-                    </div>
-                </div>
+            <!-- Profile Tabs: Overview vs Settings & Security -->
+            <div class="profile-tabs" role="tablist">
+                <button class="profile-tab-btn active" id="tab-profile-overview" onclick="switchProfileTab('overview')" role="tab" aria-selected="true">
+                    <i class="fa-solid fa-chart-pie"></i> Overview
+                </button>
+                <button class="profile-tab-btn" id="tab-profile-settings" onclick="switchProfileTab('settings')" role="tab" aria-selected="false">
+                    <i class="fa-solid fa-gear"></i> Settings &amp; Security
+                </button>
             </div>
 
-            <!-- Expense Section -->
-            <div id="expense" class="section mt-4 explore-view" style="display:none;">
-                <h5 class="fw-bold mb-3 px-3 text-primary"><i class="fa-solid fa-wallet me-2"></i>Trip Budget Manager</h5>
-                
-                <div class="card mx-3 p-4 bg-dark text-white border-0 shadow-lg rounded-4">
-                    <div class="d-flex justify-content-between">
+            <!-- ── OVERVIEW TAB CONTENT ── -->
+            <div id="profile-tab-content-overview">
+                <!-- Stats -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="stat-wishlist-count">0</div>
+                        <div class="stat-label">Saved</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="stat-visited-count">0</div>
+                        <div class="stat-label">Visited</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="stat-review-count">0</div>
+                        <div class="stat-label">Reviews</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="stat-expense-count">0</div>
+                        <div class="stat-label">Expenses</div>
+                    </div>
+                </div>
+
+                <!-- Budget in profile -->
+                <div class="profile-section-label">Trip Budget</div>
+                <div class="activity-card" style="margin-bottom:20px;">
+                    <div class="profile-budget-row">
                         <div>
-                            <small class="text-secondary text-uppercase fw-bold" style="letter-spacing: 1px;">Total Spent</small>
-                            <h2 id="total-amount" class="fw-bold text-success mb-0 mt-1">₹0.00</h2>
+                            <div style="font-size:.875rem;font-weight:500;color:var(--ink);">Budget Goal</div>
+                            <div style="font-size:.75rem;color:var(--ink-muted);">Adjust your travel limit</div>
                         </div>
-                        <div class="text-end">
-                            <small class="text-secondary text-uppercase fw-bold" style="letter-spacing: 1px;">Monthly Limit</small>
-                            <h6 id="budget-limit-text" class="mb-0 mt-2">₹10,000</h6>
-                        </div>
-                    </div>
-                    <div class="progress mt-4" style="height: 10px; background: rgba(255,255,255,0.1); border-radius: 10px;">
-                        <div id="budget-progress" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
-                    </div>
-                    <small id="budget-warning" class="mt-2 d-block text-secondary">0% of budget used</small>
-                </div>
-
-                <div class="card mx-3 mt-4 p-4 shadow-sm border-0 rounded-4">
-                    <h6 class="fw-bold text-secondary mb-3"><i class="fa-solid fa-plus me-2"></i>Add New Expense</h6>
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <select id="item_location" class="form-select border-light bg-light shadow-sm">
-                                <option value="" disabled selected>Select Destination</option>
-                                <!-- Populated dynamically from allPlacesData -->
-                                <option value="General">General / Misc</option>
-                            </select>
-                        </div>
-                        
-                        <div class="col-6">
-                            <select id="item_category" class="form-select border-light bg-light shadow-sm">
-                                <option value="Transport">Transport</option>
-                                <option value="Food">Food</option>
-                                <option value="Entry Fee">Entry Fee</option>
-                                <option value="Stay">Stay</option>
-                                <option value="Misc">Misc</option>
-                            </select>
-                        </div>
-                        
-                        <div class="col-6">
-                            <div class="input-group shadow-sm rounded">
-                                <span class="input-group-text bg-light border-light border-end-0">₹</span>
-                                <input id="item_amount" type="number" class="form-control border-light bg-light border-start-0 ps-0" placeholder="Amount">
-                            </div>
-                        </div>
-
-                        <div class="col-12">
-                            <input id="item_name" class="form-control border-light bg-light shadow-sm" placeholder="Optional Note (e.g., Taxi fare, Snacks)">
-                        </div>
-                        
-                        <div class="col-12 mt-4">
-                            <button class="btn btn-primary w-100 fw-bold py-2 shadow-sm rounded-pill" onclick="addExpenseDirect()"><i class="fa-solid fa-plus me-1"></i> Add Expense</button>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:.85rem;color:var(--ink-muted);font-weight:600;">₹</span>
+                            <input type="number" class="budget-goal-input" id="profile-budget-input" value="10000" oninput="updateBudgetGoal(this.value)" onchange="updateBudgetGoal(this.value)" aria-label="Profile budget goal">
                         </div>
                     </div>
                 </div>
 
-                <div class="mt-4 px-3 pb-5">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="fw-bold m-0 text-secondary">Recent Expenses</h6>
-                        <button class="btn btn-sm btn-link text-decoration-none text-danger fw-bold" onclick="clearAllExpensesDirect()">Clear All</button>
-                    </div>
-                    <div id="expense-list">
-                        <!-- Handled dynamically -->
-                    </div>
+                <!-- Recent activity -->
+                <div class="profile-section-label">Recent Activity</div>
+                <div class="activity-card" id="profile-recent-activity">
+                    <p style="font-size:.875rem;color:var(--ink-muted);text-align:center;padding:16px 0;">No recent activity yet.</p>
+                </div>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;">
+                    <button class="btn-signout" onclick="firebaseLogoutDirect()">
+                        <i class="fa-solid fa-arrow-right-from-bracket" style="margin-right:8px;"></i>Sign Out
+                    </button>
+                    <button type="button" class="btn-text" style="font-size:.85rem;color:var(--forest);font-weight:600;" onclick="switchProfileTab('settings')">
+                        Open Settings &amp; Security →
+                    </button>
                 </div>
             </div>
 
-            <!-- Profile Section -->
-            <div id="profile" class="section mt-4 explore-view" style="display:none;">
-                <div class="container px-3 pb-5">
-                    <div class="card border-0 shadow-sm mb-4 overflow-hidden" style="border-radius: 24px;">
-                        <div style="height: 120px; background: linear-gradient(135deg, #1e293b, #0f172a);"></div>
-                        <div class="card-body text-center pt-0" style="margin-top: -50px;">
-                            <div class="position-relative d-inline-block mb-3">
-                                <div class="bg-white rounded-circle p-1 shadow">
-                                    <div id="profile-avatar" class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" 
-                                         style="width: 90px; height: 90px; font-size: 2.2rem; border: 3px solid #fff;">
-                                        U
-                                    </div>
-                                </div>
+            <!-- ── SETTINGS & SECURITY TAB CONTENT ── -->
+            <div id="profile-tab-content-settings" style="display:none;">
+                <div class="settings-content-wrap">
+
+                    <!-- 1. ACCOUNT -->
+                    <div class="profile-section-label"><i class="fa-solid fa-user-circle"></i> Account</div>
+                    <div class="settings-group-card">
+                        <div class="settings-group-header">
+                            <div class="settings-group-icon"><i class="fa-solid fa-user"></i></div>
+                            <h3 class="settings-group-title">Personal Profile</h3>
+                        </div>
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label" id="settings-account-name">Traveller</div>
+                                <div class="settings-item-sub">Display name on reviews and suggestions</div>
                             </div>
-                            <h4 id="profile-username" class="fw-bold text-dark mb-1">User</h4>
-                            <p id="profile-email" class="text-muted small mb-0"><i class="fa-solid fa-envelope me-1"></i> email@domain.com</p>
+                            <button type="button" class="btn-settings-secondary" onclick="openEditProfileModal()">
+                                <i class="fa-solid fa-pen-to-square"></i> Edit Profile
+                            </button>
+                        </div>
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label" id="settings-account-email">—</div>
+                                <div class="settings-item-sub">Primary contact email</div>
+                            </div>
+                            <span class="settings-status-badge allowed">
+                                <i class="fa-solid fa-circle-check"></i> Verified
+                            </span>
+                        </div>
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Account Provider</div>
+                                <div class="settings-item-sub" id="settings-provider-badge">Email &amp; Password</div>
+                            </div>
+                        </div>
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Account UID</div>
+                                <div class="settings-item-sub" style="font-family:monospace;font-size:.7rem;" id="settings-account-uid">—</div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="mb-4">
-                        <h6 class="fw-bold text-secondary small text-uppercase px-2 mb-2" style="letter-spacing: 1.2px;">Overview</h6>
-                        <div class="row g-2 mb-3">
-                            <div class="col-3">
-                                <div class="card border-0 shadow-sm p-2 text-center" style="border-radius: 16px; background: #f0fdf4;">
-                                    <h4 class="fw-bold text-success mb-1" id="stat-visited-count">0</h4>
-                                    <small class="text-success fw-bold" style="font-size: 0.65rem;">VISITED</small>
-                                </div>
+                    <!-- 2. SECURITY -->
+                    <div class="profile-section-label"><i class="fa-solid fa-shield-halved"></i> Security</div>
+                    <div class="settings-group-card">
+                        <div class="settings-group-header">
+                            <div class="settings-group-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                            <h3 class="settings-group-title">Authentication &amp; Credentials</h3>
+                        </div>
+
+                        <!-- Password Provider Row (default compact state) -->
+                        <div id="security-password-account-row" class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Account Password</div>
+                                <div class="settings-item-sub" id="security-provider-info">Authenticated with Email and Password.</div>
                             </div>
-                            <div class="col-3">
-                                <div class="card border-0 shadow-sm p-2 text-center" style="border-radius: 16px; background: #eff6ff;">
-                                    <h4 class="fw-bold text-primary mb-1" id="stat-wishlist-count">0</h4>
-                                    <small class="text-primary fw-bold" style="font-size: 0.65rem;">SAVED</small>
+                            <button type="button" id="btn-toggle-password-form" class="btn-settings-secondary" onclick="togglePasswordForm(true)">
+                                <i class="fa-solid fa-key me-1"></i> Change Password
+                            </button>
+                        </div>
+
+                        <!-- Collapsible Password Update Form (hidden by default) -->
+                        <div id="password-change-card" style="display:none;" class="password-expanded-card">
+                            <div class="password-form-header">
+                                <div class="password-form-title">
+                                    <i class="fa-solid fa-key text-forest me-1"></i> Change Account Password
                                 </div>
+                                <button type="button" class="btn-text text-muted small" onclick="togglePasswordForm(false)" aria-label="Cancel password change" style="background:none;border:none;cursor:pointer;font-size:.8rem;">
+                                    <i class="fa-solid fa-xmark me-1"></i> Cancel
+                                </button>
                             </div>
-                            <div class="col-3">
-                                <div class="card border-0 shadow-sm p-2 text-center" style="border-radius: 16px; background: #fffbeb;">
-                                    <h4 class="fw-bold text-warning mb-1" id="stat-review-count">0</h4>
-                                    <small class="text-warning fw-bold" style="font-size: 0.65rem;">REVIEWS</small>
+                            <div id="security-password-error" class="auth-error" style="display:none;margin-bottom:12px;"></div>
+                            <div style="display:flex;flex-direction:column;gap:10px;">
+                                <div>
+                                    <label for="security-current-pass" class="form-label small text-muted fw-semibold mb-1">Current Password</label>
+                                    <input type="password" id="security-current-pass" class="form-control form-control-sm settings-input" placeholder="Enter current password" autocomplete="current-password">
                                 </div>
-                            </div>
-                            <div class="col-3">
-                                <div class="card border-0 shadow-sm p-2 text-center" style="border-radius: 16px; background: #fef2f2;">
-                                    <h4 class="fw-bold text-danger mb-1" id="stat-expense-count">0</h4>
-                                    <small class="text-danger fw-bold" style="font-size: 0.65rem;">EXPENSES</small>
+                                <div>
+                                    <label for="security-new-pass" class="form-label small text-muted fw-semibold mb-1">New Password</label>
+                                    <input type="password" id="security-new-pass" class="form-control form-control-sm settings-input" placeholder="Minimum 6 characters" autocomplete="new-password">
+                                </div>
+                                <div>
+                                    <label for="security-confirm-pass" class="form-label small text-muted fw-semibold mb-1">Confirm New Password</label>
+                                    <input type="password" id="security-confirm-pass" class="form-control form-control-sm settings-input" placeholder="Repeat new password" autocomplete="new-password">
+                                </div>
+                                <div class="password-actions-row">
+                                    <button type="button" id="security-update-pass-btn" class="btn-settings-primary" onclick="changeUserPassword()">
+                                        <i class="fa-solid fa-check me-1"></i> Update Password
+                                    </button>
+                                    <button type="button" class="btn-settings-secondary" onclick="togglePasswordForm(false)">
+                                        Cancel
+                                    </button>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="card border-0 shadow-sm p-3 mb-4" style="border-radius: 20px;">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center">
-                                    <div class="bg-light p-2 rounded-circle me-3 text-primary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="fa-solid fa-bullseye"></i></div>
-                                    <div>
-                                        <div class="fw-bold small">Trip Budget Goal</div>
-                                        <div class="text-muted" style="font-size: 0.7rem;">Set total limit (₹)</div>
-                                    </div>
+                        <!-- Google Single Sign-On Info (if Google account) -->
+                        <div id="google-account-info" style="display:none;" class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label" style="display:flex;align-items:center;gap:6px;">
+                                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="16" alt="Google">
+                                    Google Single Sign-On
                                 </div>
-                                <input type="number" id="budget-goal-input" class="form-control form-control-sm text-end fw-bold" 
-                                       style="width: 110px; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 10px;" 
-                                       value="10000" onchange="updateBudgetGoal(this.value)">
+                                <div class="settings-item-sub">Password and two-step verification are managed securely via your Google Account.</div>
                             </div>
+                            <span class="settings-status-badge allowed">
+                                <span class="settings-status-dot"></span> Protected
+                            </span>
                         </div>
 
-                        <h6 class="fw-bold text-secondary small text-uppercase px-2 mb-2" style="letter-spacing: 1.2px;">Recent Activity</h6>
-                        <div id="profile-recent-activity" class="card border-0 shadow-sm p-3" style="border-radius: 20px;">
-                            <p class="text-muted text-center my-3 small mb-0">Loading recent activity...</p>
+                        <!-- Active Session Row -->
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Active Session</div>
+                                <div class="settings-item-sub">Sign out safely from this browser</div>
+                            </div>
+                            <button type="button" class="btn-settings-secondary" onclick="firebaseLogoutDirect()">
+                                <i class="fa-solid fa-arrow-right-from-bracket me-1"></i> Sign Out
+                            </button>
                         </div>
                     </div>
 
-                    <div class="text-center mt-5">
-                        <button onclick="firebaseLogoutDirect()" class="btn btn-outline-danger px-4 py-2 rounded-pill fw-bold shadow-sm">
-                            <i class="fa-solid fa-right-from-bracket me-1"></i> Logout
+                    <!-- 3. PREFERENCES -->
+                    <div class="profile-section-label"><i class="fa-solid fa-sliders"></i> Preferences</div>
+                    <div class="settings-group-card">
+                        <div class="settings-group-header">
+                            <div class="settings-group-icon"><i class="fa-solid fa-sliders"></i></div>
+                            <h3 class="settings-group-title">Experience &amp; Permissions</h3>
+                        </div>
+
+                        <!-- Travel Alerts -->
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Travel &amp; Weather Alerts</div>
+                                <div class="settings-item-sub">Seasonal tips and monsoon alerts for waterfalls</div>
+                            </div>
+                            <label class="settings-switch" aria-label="Toggle Travel & Weather Alerts">
+                                <input type="checkbox" id="pref-travel-alerts" checked onchange="saveUserPreferences()">
+                                <span class="settings-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Budget Reminders -->
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Budget Reminders</div>
+                                <div class="settings-item-sub">Notify when nearing travel budget limit</div>
+                            </div>
+                            <label class="settings-switch" aria-label="Toggle Budget Reminders">
+                                <input type="checkbox" id="pref-budget-reminders" checked onchange="saveUserPreferences()">
+                                <span class="settings-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Language -->
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Application Language</div>
+                                <div class="settings-item-sub">Default guide and interface language</div>
+                            </div>
+                            <select id="pref-language" class="settings-select" onchange="saveUserPreferences()" aria-label="Language selection">
+                                <option value="en" selected>English (Default)</option>
+                                <option value="kn" disabled>ಕನ್ನಡ (Coming Soon)</option>
+                                <option value="hi" disabled>हिंदी (Coming Soon)</option>
+                            </select>
+                        </div>
+
+                        <!-- Location Services -->
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Device Location (GPS)</div>
+                                <div class="settings-item-sub">Used for distance calculations &amp; route navigation</div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <span id="settings-location-status">
+                                    <span class="settings-status-badge neutral"><span class="settings-status-dot"></span> Checking...</span>
+                                </span>
+                                <button type="button" class="btn-settings-secondary" onclick="requestLocationCheck()">
+                                    Check Permission
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. YOUR DATA & CONTROLS -->
+                    <div class="profile-section-label"><i class="fa-solid fa-database"></i> Your Data</div>
+                    <div class="settings-group-card">
+                        <div class="settings-group-header">
+                            <div class="settings-group-icon"><i class="fa-solid fa-database"></i></div>
+                            <h3 class="settings-group-title">Data Controls &amp; Storage</h3>
+                        </div>
+                        <div style="font-size:.8rem;color:var(--ink-muted);margin-bottom:12px;">
+                            Manage your personal travel data saved in Belagavi Tourism.
+                        </div>
+
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Saved Wishlist Places</div>
+                                <div class="settings-item-sub" id="settings-data-wishlist-count">0 places</div>
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                <button type="button" class="btn-settings-secondary" onclick="show('wishlist')">View</button>
+                                <button type="button" class="btn-settings-danger-subtle" onclick="requestClearData('wishlist')">Clear</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Logged Trip Expenses</div>
+                                <div class="settings-item-sub" id="settings-data-expenses-count">0 records</div>
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                <button type="button" class="btn-settings-secondary" onclick="show('expense')">View</button>
+                                <button type="button" class="btn-settings-danger-subtle" onclick="requestClearData('expenses')">Clear</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Submitted Reviews</div>
+                                <div class="settings-item-sub" id="settings-data-reviews-count">0 reviews</div>
+                            </div>
+                            <button type="button" class="btn-settings-secondary" onclick="show('explore')">View</button>
+                        </div>
+
+                        <div style="margin-top:14px;padding:10px 14px;background:var(--cream);border-radius:10px;font-size:.76rem;color:var(--ink-muted);display:flex;align-items:center;gap:8px;">
+                            <i class="fa-solid fa-circle-info text-forest"></i>
+                            <span>Public destination records and reviews from other travellers are never altered.</span>
+                        </div>
+                    </div>
+
+                    <!-- 5. PRIVACY & LEGAL -->
+                    <div class="profile-section-label"><i class="fa-solid fa-scale-balanced"></i> Privacy &amp; Legal</div>
+                    <div class="settings-group-card">
+                        <div class="settings-group-header">
+                            <div class="settings-group-icon"><i class="fa-solid fa-scale-balanced"></i></div>
+                            <h3 class="settings-group-title">Legal &amp; Privacy Policies</h3>
+                        </div>
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Privacy Policy</div>
+                                <div class="settings-item-sub">How we handle GPS, account data &amp; storage</div>
+                            </div>
+                            <button type="button" class="btn-settings-secondary" onclick="openPrivacyModal()">
+                                Read Policy
+                            </button>
+                        </div>
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Terms of Service</div>
+                                <div class="settings-item-sub">Guidelines for guide usage &amp; community reviews</div>
+                            </div>
+                            <button type="button" class="btn-settings-secondary" onclick="openTermsModal()">
+                                Read Terms
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 6. HELP & SUPPORT -->
+                    <div class="profile-section-label"><i class="fa-solid fa-headset"></i> Help &amp; Support</div>
+                    <div class="settings-group-card">
+                        <div class="settings-group-header">
+                            <div class="settings-group-icon"><i class="fa-solid fa-headset"></i></div>
+                            <h3 class="settings-group-title">Support &amp; Feedback</h3>
+                        </div>
+                        <div class="settings-item-row">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Contact / Send Feedback</div>
+                                <div class="settings-item-sub">Report a problem or suggest landmark additions</div>
+                            </div>
+                            <button type="button" class="btn-settings-secondary" onclick="openFeedbackModal()">
+                                <i class="fa-solid fa-envelope me-1"></i> Contact
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 7. ABOUT -->
+                    <div class="profile-section-label"><i class="fa-solid fa-circle-info"></i> About</div>
+                    <div class="settings-group-card">
+                        <div class="settings-group-header">
+                            <div class="settings-group-icon"><i class="fa-solid fa-circle-info"></i></div>
+                            <h3 class="settings-group-title">Belagavi Tourism</h3>
+                        </div>
+                        <div style="font-size:.82rem;color:var(--ink-muted);line-height:1.55;">
+                            <strong style="color:var(--ink);">Karnataka's Northern Crown Smart Tourism Guide</strong><br>
+                            Discover waterfalls, forts, temples, nature sanctuaries, and heritage across the Belagavi district.
+                        </div>
+                        <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;font-size:.76rem;color:var(--ink-muted);border-top:1px solid var(--border-light);padding-top:10px;">
+                            <span>Version 1.0.0 (Web Edition)</span>
+                            <span>Build 2026.09-PROD</span>
+                        </div>
+                    </div>
+
+                    <!-- 8. DANGER ZONE -->
+                    <div class="danger-zone-card">
+                        <div class="danger-zone-header">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Danger Zone
+                        </div>
+                        <div class="danger-zone-desc">
+                            Permanently delete your account and all associated personal data including saved wishlist places, expense records, submitted reviews, and conversation history. This action is irreversible.
+                        </div>
+                        <button type="button" class="btn-settings-danger-subtle" onclick="openDeleteAccountModal()">
+                            <i class="fa-solid fa-trash-can me-1"></i> Delete Account
                         </button>
                     </div>
-                </div>
-            </div>
 
-            <!-- Place Details View (Dynamic Client-Side Render) -->
-            <div id="place-details" class="section explore-view" style="display:none; padding-bottom: 80px;">
-                <div class="container px-3 mt-3" id="place-details-content">
-                    <!-- Dynamic HTML generated by main.js will be injected here -->
                 </div>
             </div>
 
         </div>
+    </div><!-- /profile -->
 
-        <!-- Bottom Navigation Safe Space and Nav Bar -->
-        <div class="bottom-nav">
-            <button onclick="show('home')" id="nav-home" class="active"><i class="fa-solid fa-house"></i>Home</button>
-            <button onclick="show('explore')" id="nav-explore"><i class="fa-solid fa-compass"></i>Explore</button>
-            <button onclick="show('wishlist')" id="nav-wishlist"><i class="fa-solid fa-heart"></i>Saved</button>
-            <button onclick="show('expense')" id="nav-expense"><i class="fa-solid fa-wallet"></i>Budget</button>
-            <button onclick="show('profile')" id="nav-profile"><i class="fa-solid fa-user"></i>Profile</button>
+    <!-- ── AI ASSISTANT ─────────────────────────────────────── -->
+    <!-- ── AI ASSISTANT ─────────────────────────────────────── -->
+    <div id="ai-assistant" class="section">
+        <!-- Sidebar Backdrop for Mobile Drawer -->
+        <div class="ai-history-backdrop" id="ai-history-backdrop" onclick="if(window.closeChatHistoryDrawer)window.closeChatHistoryDrawer()"></div>
+
+        <!-- Chat History Sidebar / Drawer -->
+        <aside class="ai-history-sidebar" id="ai-history-sidebar" aria-label="Chat History">
+            <div class="ai-history-header">
+                <button type="button" class="ai-new-chat-btn" id="ai-new-chat-btn" onclick="if(window.startNewChat)window.startNewChat()">
+                    <i class="fa-solid fa-plus me-2"></i>New Chat
+                </button>
+                <button type="button" class="ai-history-close-btn" id="ai-history-close-btn" onclick="if(window.closeChatHistoryDrawer)window.closeChatHistoryDrawer()" aria-label="Close Chat History">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="ai-history-subheading">
+                <span>Recent Conversations</span>
+            </div>
+            <div class="ai-history-list" id="ai-history-list" role="list">
+                <div class="ai-history-empty" id="ai-history-empty">No previous chats yet</div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <div class="ai-chat-viewport">
+            <div class="ai-section-wrap">
+                <div class="ai-page-header">
+                    <div class="ai-context-indicator" id="ai-context-indicator" style="display:none;">
+                        <span class="ai-context-badge"><i class="fa-solid fa-location-dot"></i> <span id="ai-context-name">Exploring Destination</span></span>
+                        <button class="ai-context-clear" id="ai-context-clear-btn" type="button" onclick="clearAIGuideContext()" title="Ask about all Belagavi destinations">
+                            <i class="fa-solid fa-xmark"></i> Clear
+                        </button>
+                    </div>
+                    <h1 class="ai-page-title" id="ai-page-title">AI Travel Guide</h1>
+                    <p class="ai-page-sub" id="ai-page-sub">Ask anything about Belagavi's destinations, history, and travel tips.</p>
+                </div>
+
+                <!-- Quick suggestion chips -->
+                <div class="ai-chips-wrap" id="ai-suggestion-chips">
+                    <button class="ai-chip" type="button" onclick="submitSuggestion(this.textContent.trim())">Best places to visit</button>
+                    <button class="ai-chip" type="button" onclick="submitSuggestion(this.textContent.trim())">Waterfalls near Belagavi</button>
+                    <button class="ai-chip" type="button" onclick="submitSuggestion(this.textContent.trim())">Hidden gems in Belagavi</button>
+                    <button class="ai-chip" type="button" onclick="submitSuggestion(this.textContent.trim())">Weekend trip ideas</button>
+                    <button class="ai-chip" type="button" onclick="submitSuggestion(this.textContent.trim())">Wildlife sanctuaries</button>
+                    <button class="ai-chip" type="button" onclick="submitSuggestion(this.textContent.trim())">Best time to visit</button>
+                </div>
+
+                <!-- Messages area -->
+                <div class="ai-messages-wrap" id="ai-messages" role="log" aria-live="polite" aria-label="AI conversation">
+                    <!-- Initial greeting injected by JS -->
+                </div>
+
+                <!-- Input bar -->
+                <div class="ai-input-bar">
+                    <input type="text" id="ai-input" placeholder="Ask about Belagavi…" autocomplete="off" aria-label="AI question input">
+                    <button class="ai-send-btn" id="ai-send-btn" type="button" aria-label="Send message">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
         </div>
+    </div><!-- /ai-assistant -->
 
+    <!-- ── PLACE DETAILS ─────────────────────────────────────── -->
+    <div id="place-details" class="section">
+        <div class="place-detail-wrap" id="place-details-content">
+            <!-- Rendered dynamically by renderPlaceDetailsFirestore() -->
+        </div>
+    </div><!-- /place-details -->
+
+    <!-- BOTTOM NAV (mobile) -->
+    <nav class="bottom-nav" role="navigation" aria-label="Mobile navigation">
+        <button class="active" id="mob-nav-home" onclick="show('home')" aria-label="Discover">
+            <i class="fa-solid fa-compass"></i>
+            Discover
+        </button>
+        <button id="mob-nav-explore" onclick="show('explore')" aria-label="Map">
+            <i class="fa-solid fa-map"></i>
+            Map
+        </button>
+        <button id="mob-nav-wishlist" onclick="show('wishlist')" aria-label="Saved">
+            <i class="fa-regular fa-heart"></i>
+            Saved
+        </button>
+        <button id="mob-nav-expense" onclick="show('expense')" aria-label="Budget">
+            <i class="fa-solid fa-wallet"></i>
+            Budget
+        </button>
+        <button id="mob-nav-profile" onclick="show('profile')" aria-label="Profile">
+            <i class="fa-regular fa-user"></i>
+            Profile
+        </button>
+    </nav>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SETTINGS & ACCOUNT MODALS
+    ════════════════════════════════════════════════════════════ -->
+
+    <!-- 1. Edit Profile Modal -->
+    <div class="settings-modal-backdrop" id="modal-edit-profile" onclick="if(event.target===this)closeEditProfileModal()">
+        <div class="settings-modal-card">
+            <div class="settings-modal-header">
+                <h4 class="settings-modal-title"><i class="fa-solid fa-pen-to-square me-2 text-forest"></i>Edit Profile</h4>
+                <button type="button" class="settings-modal-close" onclick="closeEditProfileModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="settings-modal-body">
+                <div id="edit-profile-error" class="auth-error" style="display:none;margin-bottom:12px;"></div>
+                <div class="form-group mb-3">
+                    <label for="edit-profile-name-input" class="form-label fw-bold small text-muted">Display Name</label>
+                    <input type="text" id="edit-profile-name-input" class="form-control settings-input" placeholder="Enter your name" maxlength="40">
+                    <div class="form-text" style="font-size:.72rem;">This name will be visible on your reviews and account profile.</div>
+                </div>
+            </div>
+            <div class="settings-modal-footer">
+                <button type="button" class="btn-settings-secondary" onclick="closeEditProfileModal()">Cancel</button>
+                <button type="button" id="save-profile-name-btn" class="btn-settings-primary" onclick="saveProfileName()">Save Changes</button>
+            </div>
+        </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://unpkg.com/@googlemaps/markerclusterer@2.3.1/dist/index.min.js"></script>
-    
-    <!-- Static Places Database -->
-    <script src="/static/data.js?v=20260529-2" onerror="this.src='/static/data.js?v=20260529-2'"></script>
-    <!-- Direct Client-Side JS -->
-    <script src="/static/main.js?v=20260529-2"></script>
-    <script src="/static/reviews.js?v=20260529-2"></script>
+    <!-- 2. Privacy Policy Modal -->
+    <div class="settings-modal-backdrop" id="modal-privacy-policy" onclick="if(event.target===this)closePrivacyModal()">
+        <div class="settings-modal-card" style="max-width:600px;">
+            <div class="settings-modal-header">
+                <h4 class="settings-modal-title"><i class="fa-solid fa-shield-halved me-2 text-forest"></i>Privacy Policy</h4>
+                <button type="button" class="settings-modal-close" onclick="closePrivacyModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="settings-modal-body" style="font-size:.82rem;line-height:1.6;">
+                <h5 class="fw-bold mb-1">Belagavi Smart Tourism</h5>
+                <div class="text-muted small mb-3">Effective Date: January 1, 2025 · Version 1.0</div>
 
-    <!-- Load Firebase Client Web SDK v10 CDN Modules -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-        import { 
-            getAuth, 
-            onAuthStateChanged,
-            signInWithEmailAndPassword,
-            createUserWithEmailAndPassword,
-            signOut,
-            sendPasswordResetEmail,
-            GoogleAuthProvider,
-            signInWithPopup
-        } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-        import { 
-            getFirestore, 
-            doc, 
-            setDoc, 
-            getDoc,
-            collection,
-            collectionGroup,
-            query,
-            where,
-            orderBy,
-            getDocs,
-            addDoc,
-            deleteDoc,
-            onSnapshot,
-            serverTimestamp
-        } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+                <div class="mb-3">
+                    <strong class="text-dark d-block mb-1"><i class="fa-solid fa-check text-success me-1"></i> Our Commitment</strong>
+                    Belagavi Smart Tourism is committed to protecting your privacy. We collect only the minimum data necessary to provide smart tourism services, personalized destination recommendations, and budget tracking. We never sell your personal information to third parties.
+                </div>
 
-        // Direct web project configuration
-        const firebaseConfig = {
-            apiKey:            "AIzaSyAvio-c2lwo5IHN1RSn8JV-E_-iL133w-U",
-            authDomain:        "belagavi-tourism-planner.firebaseapp.com",
-            projectId:         "belagavi-tourism-planner",
-            storageBucket:     "belagavi-tourism-planner.firebasestorage.app",
-            messagingSenderId: "306490532477",
-            appId:             "1:306490532477:web:825a7eedf4f556cecf4714"
-        };
+                <div class="mb-3">
+                    <strong class="text-dark d-block mb-1"><i class="fa-solid fa-location-dot text-primary me-1"></i> Location (GPS) Usage</strong>
+                    We request your location solely to provide real-time distance and travel time to tourist landmarks, dynamic route navigation, and local weather forecasts. Your live GPS coordinates are processed on your device and are never stored or shared with external parties. You can deny location access at any time.
+                </div>
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+                <div class="mb-3">
+                    <strong class="text-dark d-block mb-1"><i class="fa-solid fa-user-lock text-warning me-1"></i> Authentication &amp; Storage</strong>
+                    Authentication is secured by Google Firebase Authentication. We use Google Cloud Firestore to store your personal wishlists, trip expense records, and conversation history. All data in transit is encrypted using modern TLS encryption.
+                </div>
 
-        // Expose instances globally for legacy main.js support
-        window.fbAuth = auth;
-        window.fbDb = db;
-        window.fbProviders = { GoogleAuthProvider };
-        window.fbAuthMethods = { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, sendPasswordResetEmail };
-        window.fbFirestoreMethods = { doc, setDoc, getDoc, collection, collectionGroup, query, where, orderBy, getDocs, addDoc, deleteDoc, onSnapshot, serverTimestamp };
+                <div class="mb-3">
+                    <strong class="text-dark d-block mb-1"><i class="fa-solid fa-user-gear text-dark me-1"></i> Your Rights &amp; Control</strong>
+                    You can edit your personal details, clear your saved places and expenses, or permanently delete your account and all associated personal records at any time from the Settings screen.
+                </div>
+            </div>
+            <div class="settings-modal-footer">
+                <button type="button" class="btn-settings-primary" onclick="closePrivacyModal()">Understood</button>
+            </div>
+        </div>
+    </div>
 
-        console.log("[Firebase SPA] Web SDK fully bridged and initialized.");
+    <!-- 3. Terms of Service Modal -->
+    <div class="settings-modal-backdrop" id="modal-terms-of-service" onclick="if(event.target===this)closeTermsModal()">
+        <div class="settings-modal-card" style="max-width:580px;">
+            <div class="settings-modal-header">
+                <h4 class="settings-modal-title"><i class="fa-solid fa-file-contract me-2 text-forest"></i>Terms of Service</h4>
+                <button type="button" class="settings-modal-close" onclick="closeTermsModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="settings-modal-body" style="font-size:.82rem;line-height:1.6;">
+                <h5 class="fw-bold mb-1">Belagavi Tourism Guide</h5>
+                <div class="text-muted small mb-3">Last Updated: September 2026</div>
 
-        // Bootstrap the SPA auth lifecycle now that all SDK globals are ready.
-        // DOMContentLoaded fires BEFORE type="module" scripts execute, so the
-        // call in main.js's DOMContentLoaded handler sees window.fbAuthMethods as
-        // undefined and returns early. We call it here instead, after the SDK is set.
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                if (typeof initReactiveSPAAuth === 'function') initReactiveSPAAuth();
-            });
-        } else {
-            // DOM already ready (module executed after DOMContentLoaded)
-            if (typeof initReactiveSPAAuth === 'function') initReactiveSPAAuth();
+                <p><strong>1. Acceptance of Terms:</strong> By using Belagavi Tourism Smart Guide, you agree to these Terms of Service. If you do not agree, please do not use the application.</p>
+                <p><strong>2. Information &amp; Travel Safety:</strong> Destination timings, entry fees, and route suggestions are curated for tourism planning. Travellers are encouraged to observe local forestry, monsoon, and temple regulations.</p>
+                <p><strong>3. User Reviews:</strong> Community members agree to submit authentic, respectful reviews and constructive ratings.</p>
+                <p><strong>4. Intellectual Property:</strong> Belagavi Tourism content and destination photography are curated for promotional and travel appreciation purposes.</p>
+            </div>
+            <div class="settings-modal-footer">
+                <button type="button" class="btn-settings-primary" onclick="closeTermsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Help & Support / Feedback Modal -->
+    <div class="settings-modal-backdrop" id="modal-support-feedback" onclick="if(event.target===this)closeFeedbackModal()">
+        <div class="settings-modal-card">
+            <div class="settings-modal-header">
+                <h4 class="settings-modal-title"><i class="fa-solid fa-envelope me-2 text-forest"></i>Support &amp; Feedback</h4>
+                <button type="button" class="settings-modal-close" onclick="closeFeedbackModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="settings-modal-body">
+                <div id="support-feedback-error" class="auth-error" style="display:none;margin-bottom:12px;"></div>
+                <div class="form-group mb-3">
+                    <label for="support-feedback-type" class="form-label fw-bold small text-muted">Topic</label>
+                    <select id="support-feedback-type" class="form-select form-select-sm settings-select" style="width:100%;">
+                        <option value="General Inquiry">General Inquiry</option>
+                        <option value="Destination Suggestion">Suggest a Landmark or Waterfall</option>
+                        <option value="Technical Issue">Report a Problem / Bug</option>
+                        <option value="Data Request">Data &amp; Privacy Inquiry</option>
+                    </select>
+                </div>
+                <div class="form-group mb-2">
+                    <label for="support-feedback-text" class="form-label fw-bold small text-muted">Message</label>
+                    <textarea id="support-feedback-text" class="form-control settings-input" rows="4" placeholder="How can we help you? Describe your question or suggestion..."></textarea>
+                </div>
+                <div class="text-muted" style="font-size:.72rem;">You can also reach our team directly at <a href="mailto:support@belagavitourism.com">support@belagavitourism.com</a>.</div>
+            </div>
+            <div class="settings-modal-footer">
+                <button type="button" class="btn-settings-secondary" onclick="closeFeedbackModal()">Cancel</button>
+                <button type="button" id="submit-feedback-btn" class="btn-settings-primary" onclick="submitUserFeedback()">Send Message</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Data Clear Confirmation Modal -->
+    <div class="settings-modal-backdrop" id="modal-clear-confirm" onclick="if(event.target===this)closeClearConfirmModal()">
+        <div class="settings-modal-card" style="max-width:440px;">
+            <div class="settings-modal-header">
+                <h4 class="settings-modal-title" id="clear-confirm-title">Clear Data?</h4>
+                <button type="button" class="settings-modal-close" onclick="closeClearConfirmModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="settings-modal-body">
+                <p id="clear-confirm-body" style="font-size:0.86rem;color:var(--ink-secondary);margin:0;line-height:1.55;">
+                    This will remove the selected data from your account. This action cannot be undone.
+                </p>
+            </div>
+            <div class="settings-modal-footer">
+                <button type="button" class="btn-settings-secondary" onclick="closeClearConfirmModal()">Cancel</button>
+                <button type="button" id="clear-confirm-action-btn" class="btn-settings-danger">
+                    Clear Data
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. Delete Account Modal (Danger Zone) -->
+    <div class="settings-modal-backdrop" id="modal-delete-account" onclick="if(event.target===this)closeDeleteAccountModal()">
+        <div class="settings-modal-card" style="border:1.5px solid #dc3545;">
+            <div class="settings-modal-header" style="background:#fffbfb;">
+                <h4 class="settings-modal-title" style="color:#721c24;"><i class="fa-solid fa-triangle-exclamation me-2 text-danger"></i>Delete Account</h4>
+                <button type="button" class="settings-modal-close" onclick="closeDeleteAccountModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="settings-modal-body">
+                <div class="alert alert-danger p-2 mb-3" style="font-size:.8rem;">
+                    <strong>Warning:</strong> This permanently deletes your account and associated personal data. This action cannot be undone.
+                </div>
+
+                <div style="font-size:.8rem;color:var(--ink);margin-bottom:12px;">
+                    The following user-owned records will be permanently removed from Firestore:
+                </div>
+                <ul style="font-size:.78rem;color:var(--ink-muted);padding-left:20px;margin-bottom:16px;">
+                    <li>Personal profile and preferences document (<code>users/{uid}</code>)</li>
+                    <li>Saved wishlist landmarks</li>
+                    <li>Trip expense and budget tracker records</li>
+                    <li>Submitted destination reviews and rating votes</li>
+                    <li>AI Travel Guide chat history and messages</li>
+                    <li>Firebase Authentication login credentials</li>
+                </ul>
+
+                <!-- Explicit Confirmation Checkbox -->
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="delete-confirm-checkbox" onchange="checkDeleteInputsReady()">
+                    <label class="form-check-label" for="delete-confirm-checkbox" style="font-size:.8rem;font-weight:600;color:var(--ink);">
+                        I understand that my account and personal data will be permanently deleted and cannot be recovered.
+                    </label>
+                </div>
+
+                <!-- Text Confirmation Box -->
+                <div class="form-group mb-3">
+                    <label for="delete-confirm-word" class="form-label" style="font-size:.78rem;font-weight:600;color:var(--ink-muted);">
+                        To confirm, type <span style="color:#dc3545;font-family:monospace;font-weight:bold;">DELETE</span> in the box below:
+                    </label>
+                    <input type="text" id="delete-confirm-word" class="form-control form-control-sm settings-input" placeholder="Type DELETE to confirm" autocomplete="off" oninput="checkDeleteInputsReady()">
+                </div>
+
+                <!-- Reauth section if session is stale or password account -->
+                <div id="delete-reauth-section" style="display:none;background:var(--cream);padding:12px;border-radius:8px;margin-bottom:12px;">
+                    <div style="font-size:.78rem;font-weight:600;color:var(--ink);margin-bottom:6px;"><i class="fa-solid fa-lock me-1"></i> Confirm Your Password:</div>
+                    <input type="password" id="delete-reauth-password" class="form-control form-control-sm settings-input mb-2" placeholder="Account Password" autocomplete="current-password">
+                    <button type="button" class="btn-settings-secondary" style="font-size:.72rem;" onclick="reauthGoogleForDeletion()">
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="14" alt="Google"> Re-verify with Google
+                    </button>
+                </div>
+
+                <div id="delete-account-status" class="text-primary small mb-2" style="display:none;font-weight:600;"></div>
+                <div id="delete-account-error" class="auth-error" style="display:none;margin-bottom:10px;"></div>
+            </div>
+            <div class="settings-modal-footer" style="background:#fffbfb;">
+                <button type="button" class="btn-settings-secondary" onclick="closeDeleteAccountModal()">Cancel</button>
+                <button type="button" id="final-delete-btn" class="btn-settings-danger" disabled onclick="executePermanentAccountDeletion()">
+                    <i class="fa-solid fa-trash-can me-1"></i> Permanently Delete My Account
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /app-view -->
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPTS
+════════════════════════════════════════════════════════════ -->
+
+<!-- Bootstrap Bundle (JS only — for accordion etc.) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Leaflet -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Static Places Database -->
+<script src="/static/data.js?v=20260924-ai-prod" onerror="this.src='/static/data.js?v=20260924-ai-prod'"></script>
+
+<!-- Centralized AI Backend Config -->
+<script>
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const AI_BACKEND_URL = isLocal ? 'http://127.0.0.1:8000' : 'https://belagavi-tourism-yuvaraj21.vercel.app';
+    window.AI_BACKEND_URL = AI_BACKEND_URL;
+</script>
+
+<!-- AI Assistant -->
+<script src="/static/ai-assistant.js?v=20260924-ai-prod"></script>
+
+<!-- Main App Logic -->
+<script src="/static/main.js?v=20260924-ai-prod"></script>
+
+<!-- Reviews -->
+<script src="/static/reviews.js?v=20260924-ai-prod"></script>
+
+<!-- Settings / Account / Security -->
+<script src="/static/settings.js?v=20260924-ai-prod"></script>
+
+<!-- Firebase Web SDK v10 — inline module (no firebase-init.js file needed) -->
+<script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import {
+        getAuth,
+        onAuthStateChanged,
+        signInWithEmailAndPassword,
+        createUserWithEmailAndPassword,
+        signOut,
+        sendPasswordResetEmail,
+        GoogleAuthProvider,
+        signInWithPopup,
+        updateProfile,
+        updatePassword,
+        reauthenticateWithCredential,
+        EmailAuthProvider,
+        reauthenticateWithPopup,
+        deleteUser
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import {
+        getFirestore,
+        doc,
+        setDoc,
+        getDoc,
+        collection,
+        collectionGroup,
+        query,
+        where,
+        orderBy,
+        getDocs,
+        addDoc,
+        deleteDoc,
+        onSnapshot,
+        serverTimestamp
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+        apiKey:            "AIzaSyAvio-c2lwo5IHN1RSn8JV-E_-iL133w-U",
+        authDomain:        "belagavi-tourism-planner.firebaseapp.com",
+        projectId:         "belagavi-tourism-planner",
+        storageBucket:     "belagavi-tourism-planner.firebasestorage.app",
+        messagingSenderId: "306490532477",
+        appId:             "1:306490532477:web:825a7eedf4f556cecf4714"
+    };
+
+    const app  = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db   = getFirestore(app);
+
+    // Expose instances globally for main.js
+    window.fbAuth = auth;
+    window.fbDb   = db;
+    window.fbProviders = { GoogleAuthProvider, EmailAuthProvider };
+    window.fbAuthMethods = {
+        onAuthStateChanged, signInWithEmailAndPassword,
+        createUserWithEmailAndPassword, signOut,
+        signInWithPopup, sendPasswordResetEmail,
+        updateProfile, updatePassword,
+        reauthenticateWithCredential, reauthenticateWithPopup,
+        deleteUser
+    };
+    window.fbFirestoreMethods = {
+        doc, setDoc, getDoc, collection, collectionGroup,
+        query, where, orderBy, getDocs, addDoc,
+        deleteDoc, onSnapshot, serverTimestamp
+    };
+
+    console.log('[Firebase SPA] Web SDK fully bridged and initialized.');
+
+    onAuthStateChanged(auth, (user) => {
+        window.currentUser = user;
+        if (window.onAIAuthChange) {
+            window.onAIAuthChange(user);
         }
-    </script>
+    });
 
-    <!-- Google Maps JS API -->
-    <script>
-        function initGoogleMapsCallback() {
-            window.googleMapsLoaded = true;
-            if (typeof window.onGoogleMapsReady === 'function') {
-                window.onGoogleMapsReady();
-            }
+    // initReactiveSPAAuth in main.js uses DOMContentLoaded which fires before
+    // this module executes — call it here after SDK globals are ready.
+    if (window.initReactiveSPAAuth) {
+        window.initReactiveSPAAuth();
+    } else {
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.initReactiveSPAAuth) window.initReactiveSPAAuth();
+        });
+        window.__firebaseReady = true;
+    }
+</script>
+
+<script>
+// ── SHOW / HIDE SECTIONS ────────────────────────────────────
+window.show = function(sectionId) {
+    // hide all sections
+    document.querySelectorAll('.section').forEach(s => {
+        s.classList.remove('active-section');
+        s.style.display = 'none';
+    });
+    const target = document.getElementById(sectionId);
+    if (target) {
+        target.classList.add('active-section');
+        target.style.display = (sectionId === 'ai-assistant') ? 'flex' : 'block';
+        if (sectionId === 'ai-assistant' && window.refreshAIChatHistory) {
+            window.refreshAIChatHistory();
         }
-    </script>
-    <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAhjiRptavzk2QeIwb-TZ9b5TCxvfrCbDs&callback=initGoogleMapsCallback&libraries=geometry">
-    </script>
+    }
+
+    // Desktop nav active state
+    document.querySelectorAll('.nav-link-btn').forEach(b => b.classList.remove('active'));
+    const navBtn = document.getElementById('nav-' + sectionId);
+    if (navBtn) navBtn.classList.add('active');
+
+    // Mobile nav active state
+    document.querySelectorAll('.bottom-nav button').forEach(b => b.classList.remove('active'));
+    const mobBtn = document.getElementById('mob-nav-' + sectionId);
+    if (mobBtn) mobBtn.classList.add('active');
+
+    // Hash
+    window.location.hash = '#' + sectionId;
+
+    // Explore map init
+    if (sectionId === 'explore' && window.initExploreMap) {
+        setTimeout(() => window.initExploreMap(), 100);
+    }
+
+    // Expense destination init
+    if (sectionId === 'expense' && window.populateDestinationSelector) {
+        window.populateDestinationSelector();
+    }
+
+    // Scroll to top
+    window.scrollTo(0, 0);
+};
+
+// Scroll: add shadow to top nav
+window.addEventListener('scroll', () => {
+    const nav = document.getElementById('top-nav');
+    if (nav) nav.classList.toggle('scrolled', window.scrollY > 10);
+});
+
+// Hero image rotation — curated 7 destinations in preferred order
+const heroDestinations = [
+    { name: 'Jalavane Falls', src: '/static/images/jalavane_falls/1.jpg' },
+    { name: 'Jamboti Falls', src: '/static/images/jamboti_falls/1.jpg' },
+    { name: 'Gokak Falls', src: '/static/images/gokak/1.jpg' },
+    { name: 'Godchinamalaki Falls', src: '/static/images/godachimalaki_falls/1.jpg' },
+    { name: 'Khanapur Forest', src: '/static/images/khanapur_forest/1.jpg' },
+    { name: 'Kamal Basadi', src: '/static/images/kamalbasadi_belagavi/1.jpg' },
+    { name: 'Kopeshwar Temple', src: '/static/images/kopeshwara_temple/1.jpg' }
+];
+window.heroDestinations = heroDestinations;
+
+// Preload hero images to guarantee seamless transitions without lag
+heroDestinations.forEach(dest => {
+    const preloader = new Image();
+    preloader.src = dest.src;
+});
+
+let heroIdx = 0;
+function cycleHeroImage() {
+    heroIdx = (heroIdx + 1) % heroDestinations.length;
+    const dest = heroDestinations[heroIdx];
+    const img = document.getElementById('hero-img');
+    if (img) {
+        img.style.opacity = '0';
+        img.style.transition = 'opacity 1s ease';
+        setTimeout(() => {
+            img.src = dest.src;
+            img.alt = `${dest.name}, Belagavi`;
+            img.style.opacity = '1';
+        }, 1000);
+    }
+}
+window.cycleHeroImage = cycleHeroImage;
+setInterval(cycleHeroImage, 8000);
+
+// Category filter
+window.filterByCategory = function(btn, cat) {
+    document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    const heading = document.getElementById('dest-grid-heading');
+    if (heading) heading.textContent = cat === 'all' ? 'All Destinations' : cat + 's';
+    if (window.renderFeaturedPlaces) window.renderFeaturedPlaces(cat);
+};
+
+// Hero search filter
+window.filterDestinations = function(query) {
+    if (window.renderFeaturedPlaces) window.renderFeaturedPlaces('all', query);
+};
+
+// Map filter
+window.mapFilterCategory = function(btn, cat) {
+    document.querySelectorAll('.explore-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (window.filterMapMarkers) window.filterMapMarkers('', cat);
+};
+
+// Side panel toggle
+window.toggleSidePanel = function() {
+    const p = document.getElementById('side-panel');
+    if (p) p.classList.toggle('open');
+};
+
+// Recenter map
+window.recenterMap = function() {
+    if (window.exploreMap) window.exploreMap.setView([15.85, 74.5], 10);
+};
+
+// Accordion helper (used in place details)
+window.toggleAccordion = function(triggerId, bodyId) {
+    const trigger = document.getElementById(triggerId);
+    const body = document.getElementById(bodyId);
+    if (!trigger || !body) return;
+    const isOpen = body.classList.contains('open');
+    body.classList.toggle('open', !isOpen);
+    trigger.classList.toggle('open', !isOpen);
+};
+
+// AI suggestion shortcut
+window.submitSuggestion = function(text) {
+    const input = document.getElementById('ai-input');
+    if (input) {
+        input.value = text;
+        if (window.sendAIMessage) window.sendAIMessage(text);
+    }
+};
+</script>
+
 </body>
 </html>

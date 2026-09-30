@@ -292,8 +292,8 @@ class RAGService:
             # Strip any internal citation markers or source labels
             clean_answer = re.sub(r"\[\s*WEB SOURCE\s*\d+\s*(?:,\s*WEB SOURCE\s*\d+\s*)*\]", "", clean_answer, flags=re.IGNORECASE)
             clean_answer = re.sub(r"\(\s*SOURCE\s*[A-Z]\s*\)", "", clean_answer, flags=re.IGNORECASE)
-            clean_answer = re.sub(r"\bSOURCE\s*[A-Z]\b", "", clean_answer, flags=re.IGNORECASE)
             clean_answer = re.sub(r"  +", " ", clean_answer).strip()
+            clean_answer = re.sub(r"^\s*answer\s+", "", clean_answer, flags=re.IGNORECASE).strip()
 
         recommendations: List[DestinationRecommendation] = []
         llm_destinations = raw_response.get("destinations", [])

@@ -200,7 +200,15 @@ class LLMClient:
 
 def _extract_plain_text(raw: str) -> str:
     """Extract readable text from a partially broken LLM response."""
+    ans_match = re.search(r'"answer"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"', raw)
+    if ans_match:
+        try:
+            return json.loads(f'"{ans_match.group(1)}"')
+        except Exception:
+            return ans_match.group(1)
+
     text = re.sub(r'[{}\[\]":]', " ", raw)
+    text = re.sub(r"^\s*answer\s+", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\s+", " ", text).strip()
     return text[:1000] if text else "Unable to generate a response."
 
