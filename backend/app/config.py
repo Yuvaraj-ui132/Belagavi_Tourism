@@ -41,7 +41,7 @@ class Settings(BaseSettings):
         description="Gemini embedding model name",
     )
     gemini_llm_model: str = Field(
-        default="gemini-3-flash-preview",
+        default="gemini-flash-lite-latest",
         description="Gemini generative model name",
     )
 

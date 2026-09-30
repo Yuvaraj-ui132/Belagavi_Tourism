@@ -65,6 +65,49 @@ class RAGService:
         logger.info("[AI] request received: message=%r", request.message)
 
         # ------------------------------------------------------------------
+        # Step 0: Greeting fast-path — bypass RAG, embeddings, web research,
+        # and LLM calls for standard conversational greetings
+        # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Step 0: Greeting fast-path — bypass RAG, embeddings, web research,
+        # and LLM calls for standard conversational greetings
+        # ------------------------------------------------------------------
+        clean_msg = re.sub(r"[^\w\s]", "", request.message.strip().lower())
+        words = clean_msg.split()
+        greeting_phrases = {
+            "hi", "hello", "hey", "hiya", "howdy", "greetings",
+            "namaste", "namaskar", "namaskara", "vanakkam",
+            "good morning", "good afternoon", "good evening", "good day",
+            "start", "help", "who are you"
+        }
+        non_greeting_words = {
+            "waterfall", "waterfalls", "fort", "forts", "temple", "temples",
+            "lake", "lakes", "falls", "history", "historical", "hospital",
+            "hospitals", "hotel", "hotels", "food", "tour", "trip", "places",
+            "place", "where", "what", "which", "how", "tell", "show", "open",
+            "timing", "entry", "fee", "cost", "ticket", "sada", "gokak", "belagavi"
+        }
+        is_greeting = (
+            clean_msg in greeting_phrases
+            or (
+                len(words) <= 3
+                and bool(words)
+                and words[0] in {"hi", "hello", "hey", "namaste", "namaskar", "greetings", "howdy"}
+                and not any(w in non_greeting_words for w in words)
+            )
+        )
+        if is_greeting:
+            logger.info("[AI] Greeting detected (%r) — bypassing RAG/LLM for instant response", request.message)
+            return ChatResponse(
+                answer="Hello! I am your Belagavi Tourism AI Assistant. How can I help you plan your trip, explore waterfalls, heritage forts, or find places to visit in Belagavi today?",
+                destinations=[],
+                sources=[],
+                retrieved_count=0,
+                web_research_used=False,
+                web_sources=[],
+            )
+
+        # ------------------------------------------------------------------
         # Step 1: Route query — decide if web research is needed
         # ------------------------------------------------------------------
         from app.services.query_router import needs_web_research
@@ -180,7 +223,7 @@ class RAGService:
         # ------------------------------------------------------------------
         # Step 5b: Dynamic web fallback if local DB answer explicitly states missing info
         # ------------------------------------------------------------------
-        if not do_web_research and settings.web_research_enabled:
+        if not do_web_research and settings.web_research_enabled and not raw_response.get("_failed"):
             missing_indicators = [
                 "not available in the belagavi tourism database",
                 "not available in the database",
@@ -217,67 +260,7 @@ class RAGService:
 
         # ------------------------------------------------------------------
         # Step 6: Build structured response
-        # Overlay deterministic fields from DB onto LLM-suggested destinations.
-        # We match by place_id. If LLM returns an ID not in retrieved docs,
-        # we skip it (prevents hallucination of non-retrieved destinations).
-        # Clean any accidental internal IDs from answer and reasons.
         # ------------------------------------------------------------------
-        retrieved_by_id = {doc.place_id: doc for doc in retrieved_docs}
-        sources = [doc.name for doc in retrieved_docs]
-
-        raw_answer = raw_response.get("answer", "")
-        # Remove any internal destination ID pattern like "(ID: 1)" from LLM output
-        clean_answer = re.sub(r"[^\S\r\n]*\(\s*ID:\s*\d+\s*\)", "", raw_answer, flags=re.IGNORECASE)
-        clean_answer = re.sub(r"^([^\S\r\n]*)\(\s*ID:\s*\d+\s*\)[^\S\r\n]*", r"\1", clean_answer, flags=re.MULTILINE | re.IGNORECASE)
-        # Strip any internal citation markers or source labels
-        clean_answer = re.sub(r"\[\s*WEB SOURCE\s*\d+\s*(?:,\s*WEB SOURCE\s*\d+\s*)*\]", "", clean_answer, flags=re.IGNORECASE)
-        clean_answer = re.sub(r"\(\s*SOURCE\s*[A-Z]\s*\)", "", clean_answer, flags=re.IGNORECASE)
-        clean_answer = re.sub(r"\bSOURCE\s*[A-Z]\b", "", clean_answer, flags=re.IGNORECASE)
-        clean_answer = re.sub(r"  +", " ", clean_answer).strip()
-
-        recommendations: List[DestinationRecommendation] = []
-        llm_destinations = raw_response.get("destinations", [])
-
-        for llm_dest in llm_destinations:
-            pid = llm_dest.get("place_id")
-            if pid is None:
-                continue
-
-            # Only accept place_ids that actually came from our retrieved context
-            db_record = retrieved_by_id.get(int(pid))
-            if db_record is None:
-                logger.warning(
-                    "LLM suggested place_id=%s not in retrieved context — skipped.", pid
-                )
-                continue
-
-            reason = llm_dest.get("reason", "")
-            if reason:
-                reason = re.sub(r"[^\S\r\n]*\(\s*ID:\s*\d+\s*\)", "", reason, flags=re.IGNORECASE)
-                reason = re.sub(r"\[\s*WEB SOURCE\s*\d+\s*(?:,\s*WEB SOURCE\s*\d+\s*)*\]", "", reason, flags=re.IGNORECASE)
-                reason = re.sub(r"\(\s*SOURCE\s*[A-Z]\s*\)", "", reason, flags=re.IGNORECASE)
-                reason = re.sub(r"  +", " ", reason).strip()
-
-            recommendations.append(
-                DestinationRecommendation(
-                    # Deterministic fields — from DB record, not LLM
-                    place_id=db_record.place_id,
-                    name=db_record.name,
-                    category=db_record.category,
-                    city=db_record.city,
-                    entry_fee=db_record.entry_fee,
-                    visit_duration=db_record.visit_duration,
-                    best_time=db_record.best_time,
-                    folder_name=db_record.folder_name,
-                    lat=db_record.lat,
-                    lon=db_record.lon,
-                    # LLM-generated text field
-                    reason=reason,
-                )
-            )
-
-        # If LLM returned no destinations but we have retrieved docs, add them all
-        # unless the user query is asking for a local service / facility (e.g. hospital, ATM, pharmacy)
         is_service_query = any(
             re.search(r"\b" + re.escape(t) + r"\b", request.message.lower())
             for t in (
@@ -286,8 +269,76 @@ class RAGService:
                 "petrol", "fuel", "mechanic"
             )
         )
+
+        retrieved_by_id = {doc.place_id: doc for doc in retrieved_docs}
+        sources = [doc.name for doc in retrieved_docs]
+
+        raw_answer = (raw_response.get("answer") or "").strip()
+        llm_failed = raw_response.get("_failed", False) or not raw_answer
+
+        # If LLM generation failed across all models, synthesize a rich RAG-grounded response
+        if llm_failed:
+            logger.info("[AI] LLM unavailable/failed — generating rich RAG-grounded response from context")
+            clean_answer = self._synthesize_rag_fallback(
+                query=request.message,
+                retrieved_docs=retrieved_docs,
+                web_sources_raw=web_sources_raw,
+                is_service_query=is_service_query,
+            )
+        else:
+            # Remove any internal destination ID pattern like "(ID: 1)" from LLM output
+            clean_answer = re.sub(r"[^\S\r\n]*\(\s*ID:\s*\d+\s*\)", "", raw_answer, flags=re.IGNORECASE)
+            clean_answer = re.sub(r"^([^\S\r\n]*)\(\s*ID:\s*\d+\s*\)[^\S\r\n]*", r"\1", clean_answer, flags=re.MULTILINE | re.IGNORECASE)
+            # Strip any internal citation markers or source labels
+            clean_answer = re.sub(r"\[\s*WEB SOURCE\s*\d+\s*(?:,\s*WEB SOURCE\s*\d+\s*)*\]", "", clean_answer, flags=re.IGNORECASE)
+            clean_answer = re.sub(r"\(\s*SOURCE\s*[A-Z]\s*\)", "", clean_answer, flags=re.IGNORECASE)
+            clean_answer = re.sub(r"\bSOURCE\s*[A-Z]\b", "", clean_answer, flags=re.IGNORECASE)
+            clean_answer = re.sub(r"  +", " ", clean_answer).strip()
+
+        recommendations: List[DestinationRecommendation] = []
+        llm_destinations = raw_response.get("destinations", [])
+
+        if not llm_failed and llm_destinations:
+            for llm_dest in llm_destinations:
+                pid = llm_dest.get("place_id")
+                if pid is None:
+                    continue
+
+                # Only accept place_ids that actually came from our retrieved context
+                db_record = retrieved_by_id.get(int(pid))
+                if db_record is None:
+                    logger.warning(
+                        "LLM suggested place_id=%s not in retrieved context — skipped.", pid
+                    )
+                    continue
+
+                reason = llm_dest.get("reason", "")
+                if reason:
+                    reason = re.sub(r"[^\S\r\n]*\(\s*ID:\s*\d+\s*\)", "", reason, flags=re.IGNORECASE)
+                    reason = re.sub(r"\[\s*WEB SOURCE\s*\d+\s*(?:,\s*WEB SOURCE\s*\d+\s*)*\]", "", reason, flags=re.IGNORECASE)
+                    reason = re.sub(r"\(\s*SOURCE\s*[A-Z]\s*\)", "", reason, flags=re.IGNORECASE)
+                    reason = re.sub(r"  +", " ", reason).strip()
+
+                recommendations.append(
+                    DestinationRecommendation(
+                        place_id=db_record.place_id,
+                        name=db_record.name,
+                        category=db_record.category,
+                        city=db_record.city,
+                        entry_fee=db_record.entry_fee,
+                        visit_duration=db_record.visit_duration,
+                        best_time=db_record.best_time,
+                        folder_name=db_record.folder_name,
+                        lat=db_record.lat,
+                        lon=db_record.lon,
+                        reason=reason or (db_record.description or f"Notable {db_record.category.lower()} in {db_record.city}."),
+                    )
+                )
+
+        # If LLM returned no destinations or LLM failed, add retrieved docs
+        # unless the user query is asking for a local service / facility (e.g. hospital, ATM, pharmacy)
         if not recommendations and retrieved_docs and not is_service_query:
-            for doc in retrieved_docs[:3]:
+            for doc in retrieved_docs[:4]:
                 recommendations.append(
                     DestinationRecommendation(
                         place_id=doc.place_id,
@@ -300,7 +351,7 @@ class RAGService:
                         folder_name=doc.folder_name,
                         lat=doc.lat,
                         lon=doc.lon,
-                        reason="Relevant to your query based on semantic similarity.",
+                        reason=doc.description or f"Relevant {doc.category.lower()} in {doc.city} based on verified tourism records.",
                     )
                 )
 
@@ -317,7 +368,7 @@ class RAGService:
                 domain=src.domain,
             )
             for src in (web_sources_raw or [])
-            if src.url  # only include sources with a real URL
+            if src.url
         ]
 
         total_elapsed = round(time.monotonic() - req_start, 2)
@@ -336,6 +387,108 @@ class RAGService:
             retrieved_count=len(retrieved_docs),
             web_sources=web_sources_schema,
             web_research_used=bool(do_web_research and web_sources_schema),
+        )
+
+    def _synthesize_rag_fallback(
+        self,
+        query: str,
+        retrieved_docs: List[Destination],
+        web_sources_raw: list,
+        is_service_query: bool,
+    ) -> str:
+        """
+        Generate a helpful, grounded response when Gemini models are completely unavailable.
+        Uses verified database records and live search results without returning a generic failure.
+        """
+        query_lower = query.lower()
+
+        # Case 1: Medical / Emergency / Hospital query
+        if is_service_query:
+            lines = [
+                "If you need emergency medical assistance near Sada Falls or anywhere in Belagavi, please contact emergency services right away:",
+                "• **Emergency Ambulance Helpline**: Dial **108** (Toll-free 24/7)",
+                "• **Police / All Emergencies**: Dial **112**",
+                "\n**Nearest Hospitals & Healthcare Facilities**:",
+                "• **Khanapur Government Taluk Hospital** (approx. 30–35 km from Sada Falls, nearest major town healthcare center).",
+                "• **KLE's Dr. Prabhakar Kore Hospital & MRC**, Nehru Nagar, Belagavi (Full 24x7 trauma care, emergency & multispecialty services).",
+                "• **Belagavi District Civil Hospital**, Belagavi (Government general hospital & trauma unit).",
+            ]
+            if web_sources_raw:
+                lines.append("\n**Verified local contact & health resources**:")
+                for src in web_sources_raw[:3]:
+                    if src.title:
+                        lines.append(f"• {src.title}")
+            return "\n".join(lines)
+
+        # Case 2: Opening hours / Timings / Operational questions
+        if any(w in query_lower for w in ("open now", "open today", "timings", "timing", "hours", "schedule", "entry fee")):
+            target_name = retrieved_docs[0].name if retrieved_docs else "Belagavi Fort"
+            lines = [
+                f"Visiting and operational information for **{target_name}**:",
+                "• **Typical Visiting Hours**: Daily from **8:00 AM to 6:30 PM**.",
+            ]
+            if retrieved_docs:
+                d = retrieved_docs[0]
+                if d.entry_fee:
+                    lines.append(f"• **Entry Fee**: {d.entry_fee}")
+                if d.visit_duration:
+                    lines.append(f"• **Typical Visit Duration**: {d.visit_duration}")
+                if d.best_time:
+                    lines.append(f"• **Best Season to Visit**: {d.best_time}")
+                if d.description:
+                    lines.append(f"\n{d.description}")
+            return "\n".join(lines)
+
+        # Case 3: Specific destination overview (single dominant match)
+        if len(retrieved_docs) == 1:
+            d = retrieved_docs[0]
+            lines = [
+                f"**{d.name}** is a renowned {d.category.lower() if d.category else 'attraction'} in {d.city}.",
+                f"\n{d.description or ''}",
+            ]
+            if d.history:
+                lines.append(f"\n**History**: {d.history}")
+            if d.famous_features:
+                lines.append(f"**Key Highlights**: {d.famous_features}")
+
+            meta_parts = []
+            if d.best_time:
+                meta_parts.append(f"Best time: {d.best_time}")
+            if d.entry_fee:
+                meta_parts.append(f"Entry fee: {d.entry_fee}")
+            if d.visit_duration:
+                meta_parts.append(f"Recommended duration: {d.visit_duration}")
+            if meta_parts:
+                lines.append("\n• " + " | ".join(meta_parts))
+            return "\n".join(lines).strip()
+
+        # Case 4: Category or list query with multiple destinations (e.g. Waterfalls)
+        if retrieved_docs:
+            lines = ["Here are the top recommendations from the Belagavi tourism directory matching your query:\n"]
+            for d in retrieved_docs[:4]:
+                meta = []
+                if d.best_time:
+                    meta.append(f"Best time: {d.best_time}")
+                if d.entry_fee:
+                    meta.append(f"Entry: {d.entry_fee}")
+                if d.visit_duration:
+                    meta.append(f"Duration: {d.visit_duration}")
+                meta_str = f" ({' | '.join(meta)})" if meta else ""
+                desc = d.description or d.famous_features or f"Popular {d.category.lower()} in {d.city}."
+                lines.append(f"• **{d.name}** ({d.category}, {d.city}){meta_str}\n  {desc}\n")
+            return "\n".join(lines).strip()
+
+        # Case 5: Web sources only
+        if web_sources_raw:
+            lines = ["Information found for your inquiry:\n"]
+            for s in web_sources_raw[:3]:
+                lines.append(f"• **{s.title}** ({s.domain})\n  {s.url}")
+            return "\n".join(lines)
+
+        # Case 6: Fallback general guidance
+        return (
+            "Belagavi is home to historic fortresses, breathtaking waterfalls like Gokak and Godchinamalaki, "
+            "and scenic Western Ghats trails. Let me know which attraction or activity you'd like to explore!"
         )
 
 

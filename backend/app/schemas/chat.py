@@ -74,7 +74,7 @@ class ChatResponse(BaseModel):
         description="Recommended destinations with deterministic metadata from DB"
     )
     sources: List[str] = Field(description="Names of retrieved destinations used as context")
-    retrieved_count: int = Field(description="Number of documents retrieved from pgvector")
+    retrieved_count: int = Field(default=0, description="Number of documents retrieved from pgvector")
     # Web research fields — present only when web research was triggered.
     # Default to empty / False so existing clients see no change for normal queries.
     web_sources: List["WebSource"] = Field(
