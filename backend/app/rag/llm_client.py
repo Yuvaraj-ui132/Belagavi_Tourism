@@ -86,7 +86,7 @@ class LLMClient:
                     timeout=per_call_timeout,
                 )
                 latency_ms = int((time.monotonic() - call_start) * 1000)
-                raw_text = (response.text or "").strip()
+                raw_text = _safe_extract_text(response)
                 parsed = self._parse_llm_json(raw_text)
                 if parsed.get("answer"):
                     logger.info("[AI] llm_model_success=%s latency=%dms", model_name, latency_ms)
@@ -113,6 +113,9 @@ class LLMClient:
                     last_error_type = "503_unavailable"
                 elif "404" in exc_str or "NOT_FOUND" in exc_str:
                     last_error_type = "404_not_found"
+                elif "model output must contain" in exc_str or "cannot both be empty" in exc_str:
+                    # Safety filter or empty response — treat as empty output and try next model
+                    last_error_type = "empty_output"
                 else:
                     last_error_type = type(exc).__name__
 
@@ -176,6 +179,37 @@ class LLMClient:
             "destinations": data.get("destinations", []) or [],
             "sources": data.get("sources", []) or [],
         }
+
+
+def _safe_extract_text(response: Any) -> str:
+    """
+    Safely extract text from a Google GenAI response.
+
+    The `response.text` property raises:
+        "model output must contain either output text or tool calls,
+         these cannot both be empty"
+    when the model returns no candidates or when the content is blocked by
+    safety filters. This helper extracts text via candidates to avoid the
+    exception and returns an empty string instead.
+    """
+    try:
+        candidates = getattr(response, "candidates", None) or []
+        if not candidates:
+            return ""
+        candidate = candidates[0]
+        content = getattr(candidate, "content", None)
+        if content is None:
+            return ""
+        parts = getattr(content, "parts", None) or []
+        texts = []
+        for part in parts:
+            t = getattr(part, "text", None)
+            if t:
+                texts.append(t)
+        return "".join(texts).strip()
+    except Exception as exc:
+        logger.warning("[AI] _safe_extract_text error: %s", exc)
+        return ""
 
 
 def _extract_plain_text(raw: str) -> str:
