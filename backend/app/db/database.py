@@ -17,6 +17,8 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
+import os
+from sqlalchemy.pool import NullPool
 from app.config import get_settings
 
 
@@ -27,10 +29,17 @@ class Base(DeclarativeBase):
 
 def _build_engine():
     settings = get_settings()
+    is_serverless = os.environ.get("VERCEL") == "1" or "pooler.supabase.com" in settings.database_url
+    if is_serverless:
+        return create_async_engine(
+            settings.database_url,
+            echo=False,
+            poolclass=NullPool,
+        )
     return create_async_engine(
         settings.database_url,
-        echo=False,           # Set True to log SQL queries (useful for debugging)
-        pool_pre_ping=True,   # Check connection health before using from pool
+        echo=False,
+        pool_pre_ping=True,
         pool_size=5,
         max_overflow=10,
     )

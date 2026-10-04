@@ -127,6 +127,10 @@ class Settings(BaseSettings):
     @staticmethod
     def _to_async_dsn(url: str) -> str:
         """Ensure the URL uses the postgresql+asyncpg:// scheme."""
+        if "pooler.supabase.com:5432" in url:
+            # Switch Supabase pooler from Session mode (5432, max 15 clients)
+            # to Transaction mode (6543, scalable for serverless functions)
+            url = url.replace("pooler.supabase.com:5432", "pooler.supabase.com:6543")
         if url.startswith("postgresql+asyncpg://"):
             return url
         if url.startswith("postgresql://"):
@@ -134,7 +138,7 @@ class Settings(BaseSettings):
         if url.startswith("postgres://"):
             # Heroku / Supabase sometimes emit postgres:// (non-standard alias)
             return "postgresql+asyncpg://" + url[len("postgres://"):]
-        return url  # unknown scheme — pass through and let SQLAlchemy error
+        return url
 
     @staticmethod
     def _to_sync_dsn(url: str) -> str:
