@@ -1032,11 +1032,24 @@
 
         let resp;
         try {
+            var reqHeaders = { 'Content-Type': 'application/json' };
+            try {
+                var fbUser = window.currentUser || (window.fbAuth && window.fbAuth.currentUser);
+                if (fbUser && typeof fbUser.getIdToken === 'function') {
+                    var idTok = await fbUser.getIdToken();
+                    if (idTok) {
+                        reqHeaders['Authorization'] = 'Bearer ' + idTok;
+                    }
+                }
+            } catch (tokErr) {
+                console.warn('[AI Assistant] Could not acquire ID token:', tokErr);
+            }
+
             resp = await _fetchWithTimeout(
                 `${AI_BACKEND_URL}/api/chat`,
                 {
                     method:  'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: reqHeaders,
                     body:    JSON.stringify({
                         message: apiMessage,
                         history: historyPayload
