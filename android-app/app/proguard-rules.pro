@@ -45,8 +45,15 @@
 -keep class com.belagavi.tourism.SmartTourismApp { *; }
 
 # Retrofit & Gson
+# -keepattributes Signature alone is insufficient in R8.
+# EnclosingMethod + InnerClasses are required so that Gson can call
+# getGenericSuperclass() on anonymous TypeToken subclasses and get a
+# ParameterizedType instead of a raw Class (fixes the release-only crash:
+# "java.lang.Class cannot be cast to java.lang.reflect.ParameterizedType")
 -keepattributes Signature
 -keepattributes *Annotation*
+-keepattributes EnclosingMethod
+-keepattributes InnerClasses
 -dontwarn retrofit2.**
 -keep class retrofit2.** { *; }
 -keepclasseswithmembers class * {
@@ -57,3 +64,6 @@
     @com.google.gson.annotations.SerializedName <fields>;
 }
 
+# Keep OkHttp response converter internals used by Retrofit's GsonConverterFactory
+-keep class okhttp3.internal.** { *; }
+-dontwarn okhttp3.internal.**

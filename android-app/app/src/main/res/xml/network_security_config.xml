@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network Security Configuration for Belagavi Tourism.
+
+    Policy:
+    - All production traffic MUST use HTTPS (TLS).
+    - Cleartext (HTTP) is blocked for all domains.
+    - No certificate pinning — pinning a public APK would make the app
+      unrecoverable if the backend certificate changes. HTTPS alone is
+      the correct boundary for a public-distribution APK.
+
+    Reference: https://developer.android.com/training/articles/security-config
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

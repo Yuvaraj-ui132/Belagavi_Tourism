@@ -32,6 +32,23 @@ class Settings(BaseSettings):
     # -----------------------------------------------------------------------
     gemini_api_key: str = Field(..., description="Google Gemini API key")
 
+    # -----------------------------------------------------------------------
+    # Firebase Admin SDK (server-side token verification)
+    # -----------------------------------------------------------------------
+    # Provide ONE of the following to enable /api/chat authentication:
+    #
+    # Option A (recommended for Vercel/serverless):
+    #   FIREBASE_SERVICE_ACCOUNT_JSON — paste the entire service-account JSON as a string.
+    #   Generate from Firebase Console → Project Settings → Service accounts.
+    #
+    # Option B (file-based):
+    #   GOOGLE_APPLICATION_CREDENTIALS — path to the service-account JSON file.
+    #   Standard Google SDK credential resolution; handled automatically by firebase_admin.
+    #
+    # Neither key is read by config.py — they are read directly from os.environ by
+    # app/auth/firebase.py so they are NEVER logged, serialised, or printed anywhere.
+    # They are documented here only so operators know which env vars are required.
+
     # Model names — kept configurable; never hard-coded elsewhere in the app.
     # Verified current models (September 2026):
     #   Embedding: gemini-embedding-001  (replaces deprecated text-embedding-004)
@@ -198,7 +215,7 @@ class Settings(BaseSettings):
     # Sign up free at https://tavily.com — 1,000 credits/month, no card needed.
     # Leave unset to use Gemini Grounding only.
     tavily_api_key: Optional[str] = Field(
-        default="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",
+        default=None,  # Set TAVILY_API_KEY environment variable — never hardcode here
         alias="TAVILY_API_KEY",
         description="Optional Tavily Search API key for supplemental web research.",
     )

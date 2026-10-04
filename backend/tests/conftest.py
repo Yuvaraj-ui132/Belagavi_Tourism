@@ -42,6 +42,7 @@ def _make_test_client(extra_overrides: dict = None):
     from fastapi.testclient import TestClient
     from app.main import app
     from app.db.database import get_db
+    from app.auth.firebase import require_firebase_user
 
     mock_session = AsyncMock()
     mock_session.execute = AsyncMock(return_value=None)
@@ -51,7 +52,11 @@ def _make_test_client(extra_overrides: dict = None):
     async def _mock_db():
         yield mock_session
 
+    async def _mock_auth():
+        return "test-user-uid-12345"
+
     app.dependency_overrides[get_db] = _mock_db
+    app.dependency_overrides[require_firebase_user] = _mock_auth
     if extra_overrides:
         app.dependency_overrides.update(extra_overrides)
 

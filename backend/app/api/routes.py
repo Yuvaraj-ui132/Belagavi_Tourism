@@ -4,10 +4,18 @@ FastAPI route definitions for the AI backend.
 Endpoints:
   GET  /api/health   — health check (no auth required)
   POST /api/search   — semantic destination search (public)
-  POST /api/chat     — RAG tourism assistant (public)
+  POST /api/chat     — RAG tourism assistant (Firebase auth required)
+
+Authentication:
+  /api/chat requires a valid Firebase ID token in the Authorization header:
+      Authorization: Bearer <firebase-id-token>
+  Requests without a valid token receive HTTP 401 Unauthorized.
+  The verified Firebase UID is extracted server-side — client-supplied UIDs
+  are never trusted.
 
 Error handling:
   - 400 Bad Request: invalid input (Pydantic validation errors auto-handled by FastAPI)
+  - 401 Unauthorized: missing, malformed, expired, or revoked Firebase token
   - 503 Service Unavailable: database or embedding service down
   - 500 Internal Server Error: unexpected errors
 """
@@ -19,6 +27,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.firebase import require_firebase_user
 from app.db.database import get_db
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.search import SearchRequest, SearchResponse
@@ -128,28 +137,37 @@ async def semantic_search(
 async def rag_chat(
     request: ChatRequest,
     db: AsyncSession = Depends(get_db),
+    uid: str = Depends(require_firebase_user),
 ) -> ChatResponse:
     """
-    RAG-powered tourism assistant.
+    RAG-powered tourism assistant — requires Firebase Authentication.
+
+    Authentication:
+        Send a valid Firebase ID token in the Authorization header:
+            Authorization: Bearer <firebase-id-token>
+        Missing or invalid tokens receive HTTP 401 Unauthorized.
+        The uid is verified server-side from the token — never trusted from the client.
 
     Full pipeline:
-    1. Embed user message (Gemini gemini-embedding-001).
-    2. Retrieve top-K relevant destinations from pgvector.
-    3. Build context from retrieved documents.
-    4. Call Gemini gemini-3.5-flash with grounding context.
-    5. Parse structured JSON response.
-    6. Overlay deterministic fields (entry_fee, lat, lon) from DB.
-    7. Return ChatResponse.
+    1. Verify Firebase ID token → extract verified uid.
+    2. Embed user message (Gemini gemini-embedding-001).
+    3. Retrieve top-K relevant destinations from pgvector.
+    4. Build context from retrieved documents.
+    5. Call Gemini LLM with grounding context.
+    6. Parse structured JSON response.
+    7. Overlay deterministic fields (entry_fee, lat, lon) from DB.
+    8. Return ChatResponse.
 
     The LLM is explicitly instructed NOT to invent facts not present in the
     retrieved context. All factual fields in the response come from the database.
     """
+    logger.info("Chat request from authenticated user (uid length=%d)", len(uid))
     rag_svc = get_rag_service()
 
     try:
         response = await rag_svc.chat(db=db, request=request)
     except RuntimeError as exc:
-        logger.error("RAG chat failed: %s", exc)
+        logger.error("RAG chat failed for authenticated user: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"AI service unavailable: {exc}",
