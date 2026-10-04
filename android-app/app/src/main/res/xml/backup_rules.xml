@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Exclude Firebase tokens and sensitive auth data from backup -->
+    <exclude domain="sharedpref" path="com.google.android.gms.auth.api.credentials.CredentialsClient.xml" />
+    <exclude domain="sharedpref" path="FirebaseABTesting.xml" />
+</full-backup-content>

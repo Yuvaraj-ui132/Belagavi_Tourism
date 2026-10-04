@@ -21,3 +21,9 @@ google-services.json
 backend/.env
 backend/venv/
 backend/__pycache__/
+
+# Firebase local cache & deployment files
+.firebase/
+
+# Release APK binaries — distributed via GitHub Releases, not source commits
+*.apk
