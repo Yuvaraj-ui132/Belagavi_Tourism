@@ -13,6 +13,7 @@ CORS is configured to allow the web frontend and local dev tools.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 
@@ -44,9 +45,14 @@ async def lifespan(app: FastAPI):
     logger.info("LLM model       : %s", settings.gemini_llm_model)
     logger.info("Database        : %s:%d/%s", settings.postgres_host, settings.postgres_port, settings.postgres_db)
 
-    # Initialise PostgreSQL + pgvector
-    await init_db()
-    logger.info("Database initialised.")
+    # Initialise PostgreSQL + pgvector (skip on serverless cold-starts for fast response)
+    is_serverless = os.environ.get("VERCEL") == "1" or os.environ.get("AWS_LAMBDA_FUNCTION_NAME") is not None
+    if not is_serverless:
+        try:
+            await init_db()
+            logger.info("Database initialised.")
+        except Exception as exc:
+            logger.warning("Database initialisation skipped: %s", exc)
 
     yield  # Application runs here
 
