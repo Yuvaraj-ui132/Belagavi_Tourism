@@ -30,6 +30,7 @@ async def init_db() -> None:
         # Import models so SQLAlchemy's metadata knows about them.
         # This import must be here (after Base is defined) to avoid circular imports.
         import app.models.destination  # noqa: F401
+        import app.models.rate_limit  # noqa: F401
 
         await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables created / verified.")

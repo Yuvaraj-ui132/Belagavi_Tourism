@@ -28,6 +28,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.firebase import require_firebase_user
+from app.auth.rate_limiter import check_rate_limit
 from app.db.database import get_db
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.search import SearchRequest, SearchResponse
@@ -162,6 +163,7 @@ async def rag_chat(
     retrieved context. All factual fields in the response come from the database.
     """
     logger.info("Chat request from authenticated user (uid length=%d)", len(uid))
+    await check_rate_limit(uid=uid, db=db)
     rag_svc = get_rag_service()
 
     try:

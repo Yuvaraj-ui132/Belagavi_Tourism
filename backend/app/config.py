@@ -62,6 +62,25 @@ class Settings(BaseSettings):
         description="Gemini generative model name",
     )
 
+    # -----------------------------------------------------------------------
+    # Rate Limiting & Abuse Protection
+    # -----------------------------------------------------------------------
+    rate_limit_per_minute: int = Field(
+        default=20,
+        alias="RATE_LIMIT_PER_MINUTE",
+        description="Maximum chat requests per minute per authenticated user",
+    )
+    rate_limit_window_seconds: int = Field(
+        default=60,
+        alias="RATE_LIMIT_WINDOW_SECONDS",
+        description="Rate limit window in seconds",
+    )
+    rate_limit_enabled: bool = Field(
+        default=True,
+        alias="RATE_LIMIT_ENABLED",
+        description="Whether rate limiting is enabled",
+    )
+
     # Embedding output dimension.
     # gemini-embedding-001 default is 3072; Google recommends 768, 1536, or 3072.
     # We use 768 for this project: good quality, lower storage, exact match to pgvector column.
