@@ -20,6 +20,9 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+_table_ensured = False
+
+
 async def check_rate_limit(uid: str, db: AsyncSession) -> None:
     """
     Check and increment the rate limit counter for the authenticated Firebase UID.
@@ -27,6 +30,7 @@ async def check_rate_limit(uid: str, db: AsyncSession) -> None:
     Raises:
         HTTPException(429): If the user has exceeded their allowed quota.
     """
+    global _table_ensured
     settings = get_settings()
     if not settings.rate_limit_enabled:
         return
@@ -35,14 +39,20 @@ async def check_rate_limit(uid: str, db: AsyncSession) -> None:
     window = settings.rate_limit_window_seconds
 
     try:
-        # 1. Ensure table exists (idempotent, safe on initial cold-start)
-        await db.execute(text("""
-            CREATE TABLE IF NOT EXISTS api_rate_limits (
-                user_id VARCHAR(128) PRIMARY KEY,
-                request_count INT NOT NULL DEFAULT 1,
-                window_start TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            );
-        """))
+        # 1. Ensure table exists once per worker lifecycle
+        if not _table_ensured:
+            try:
+                await db.execute(text("""
+                    CREATE TABLE IF NOT EXISTS api_rate_limits (
+                        user_id VARCHAR(128) PRIMARY KEY,
+                        request_count INT NOT NULL DEFAULT 1,
+                        window_start TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
+                """))
+                await db.commit()
+                _table_ensured = True
+            except Exception:
+                await db.rollback()
 
         # 2. Fetch current record for user with row lock
         res = await db.execute(text("""
