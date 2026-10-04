@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Places collection (publicly readable for tourism exploration) ──
+    match /places/{placeId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // ── User profiles & private subcollections ──
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // ── AI Guide Chat History (Per-user private chat persistence) ──
+      // User A can only read, write, and delete their own conversations and messages.
+      match /ai_chats/{chatId} {
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+
+        match /messages/{messageId} {
+          allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+        }
+      }
+    }
+
+    // ── Wishlist (User scoped) ──
+    match /wishlist/{wishlistId} {
+      allow read, write, delete: if request.auth != null && (
+        resource == null || resource.data.userId == request.auth.uid || resource.data.uid == request.auth.uid || resource.data.user_id == request.auth.uid
+      );
+      allow create: if request.auth != null && (
+        request.resource.data.userId == request.auth.uid || request.resource.data.uid == request.auth.uid || request.resource.data.user_id == request.auth.uid
+      );
+    }
+
+    // ── Expenses (User scoped budget tracker) ──
+    match /expenses/{expenseId} {
+      allow read, write, delete: if request.auth != null && (
+        resource == null || resource.data.userId == request.auth.uid || resource.data.uid == request.auth.uid || resource.data.user_id == request.auth.uid
+      );
+      allow create: if request.auth != null && (
+        request.resource.data.userId == request.auth.uid || request.resource.data.uid == request.auth.uid || request.resource.data.user_id == request.auth.uid
+      );
+    }
+
+    // ── Ratings & Votes ──
+    match /ratings/{placeId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+
+      match /votes/{userId} {
+        allow read: if true;
+        allow write, delete: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // ── Reviews & Comments ──
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow write, delete: if request.auth != null;
+      }
+    }
+
+    // ── Feedback (Support & Problem Reports) ──
+    match /feedback/{feedbackId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+  }
+}
